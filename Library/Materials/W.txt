@@ -1,0 +1,77 @@
+materialName=W;
+crystalStructure=BCC;
+atomsPerUnitCell=1;
+enabledSlipSystems=a/2<111>{110}; # types of slip systems enabled e.g. enabledSlipSystems=a/2<111>{110} a<100>{110};
+b_SI=0.2722e-9;	# [m] 		Burgers vector magnitude 
+mu0_SI=161.0e9;	# [Pa] 		temperature-independent shear modulus coeff in mu=mu0+mu1*T
+mu1_SI=0.0;		# [Pa/K] 	temperature-dependent shear modulus coeff in mu=mu0+mu1*T
+nu=0.28;		# [-]		Poisson's ratio
+rho_SI=19250.0;	# [kg/m^3]	mass density
+Tm=3695.0;		# [K]		melting temperature
+
+# Mobility parameters
+mobility_a/2<111>{110}=edgeScrew a/2<111>{110}e a/2<111>{110}s;
+mobility_a/2<111>{110}e= viscousDrag 4.26e-04 0.87e-06; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<111>{110}s= kinkPair 0.94280904158 25 9.8e-4 0.0 8.3e-05 1.63 0.86 1.69 0.8 2.03e9 1.50 1.15 2.32 4.29 60.0; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 zone_angle. For BCC h/b = 2.0*sqrt(2.0)/3.0 = 0.94280904158
+
+# GlidePlane Noise
+glidePlaneNoise = none; 
+
+# Second Phases
+enabledSecondPhases= sigma chi;
+
+sigmaWaveVectors110=0 0
+1 0
+-1 -1
+0 1
+-2 0
+3 1  
+-2 -2
+3 0
+-4 -1;
+
+sigmaGammaSurfacePoints110=0 0 0
+0 0.5 2.7
+0.5 0.5 3.7
+0.5 0 3.2
+0.1 0.4 2.7
+0.333 0.667 1.5
+0.125 0.875 3.6
+0.2917 0.2083 3.4
+0 0.4 2.7;
+
+chiWaveVectors110=0  0
+1 0
+-1 -1
+2 1
+2 0
+1 -1
+-2 -2
+3 0
+2 -1
+0 -2
+-4 0
+-1 2;
+
+chiGammaSurfacePoints110=0 0 0
+0.22 0 2.85
+0.36 0 3.8
+0.5 0 0
+0 0.5 3.9
+0.5 0.5 4.05
+0.1667 0.3333 1.8
+0.32143 0.17857 3.8
+0.5 0.3 3
+0.32143 0.67857 1.8
+0.14286 0.75714 3.3
+0.1 0.2 3;
+
+# ClusterDynamics
+doseRate_dpaPerSec=0.0e-7; 		# [dpa/s] irradiation dose rate
+mobileSpeciesVector=-1;			# single vacancies
+mobileSpeciesSurvivingEfficiency = 0.01; # Surviving efficiency
+mobileSpeciesRelRelaxVol= 0.0; 	# [-] relative vacancy relaxation volume
+mobileSpeciesEnergyFormation_eV=0.0; 	# [eV] vacancy formation energy
+mobileSpeciesEnergyMigration_eV=0.0 0 0 0.0 0 0.0; 	# [eV] anisotropic migration energies, components [11 12 13 22 23 33]
+mobileSpeciesD0_SI=0.0 0 0 0.0 0 0.0; # [m^2/s] anisotropic pre-exponential diffusion coefficients, components [11 12 13 22 23 33]
+otherSinks_SI=0.0;

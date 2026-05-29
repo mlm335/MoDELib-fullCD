@@ -1,0 +1,28 @@
+type= CrackMesh;
+style=individual;
+nodes=   0   0 0
+       -10 -10 0
+        10 -10 0
+        10  10 0
+       -10  10 0;
+
+burgers= 0 0 1
+         0 0 0
+         0 0 0
+         0 0 0
+         0 0 0;
+
+triangles= 1 2 0
+           2 3 0
+           3 4 0
+           4 1 0;
+
+
+Sketch of the mesh
+4 ----3   
+|\   /|
+| \ / |
+|  0  | 
+| / \ |
+|/   \|
+1-----2

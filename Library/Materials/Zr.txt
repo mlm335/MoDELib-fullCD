@@ -1,0 +1,57 @@
+materialName=Zr;
+crystalStructure=HEX;
+atomsPerUnitCell=2;
+enabledSlipSystems=<a>{basal} <a>{prismatic}; # types of slip systems enabled e.g. enabledSlipSystems=<<a>{basal} <a>{prismatic} <a>{pyramidal} <Shockley>{basal};
+b_SI=0.3233e-9; #0.3615e-9; # [m] 		Burgers vector magnitude 
+mu0_SI=33e9;	# [Pa] 		temperature-independent shear modulus coeff in mu=mu0+mu1*T
+mu1_SI=0.0;		# [Pa/K] 	temperature-dependent shear modulus coeff in mu=mu0+mu1*T
+nu=0.34;		# [-]		Poisson's ratio
+rho_SI=6520.0;	# [kg/m^3]	mass density
+Tm=2128;		# [K]		melting temperature
+
+# Mobility parameters 
+mobility_<a>{basal}=edgeScrew <a>{basal}_edge <a>{basal}_screw;
+mobility_<a>{basal}_edge= viscousDrag 50.0e-6 0.0; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_<a>{basal}_screw= kinkPair 0.86602540378 25.0 50.0e-6 0.0 50.0e-6 5.06 0.86 1.69 0.8 137.24e6 1.0 0.0 0.0 0.0 90; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 zone_angle. For HCP_basal h/b = sqrt(3.0)/2.0 = 0.86602540378
+
+mobility_<a>{prismatic}=edgeScrew <a>{prismatic}_edge <a>{prismatic}_screw;
+mobility_<a>{prismatic}_edge= viscousDrag 50.0e-6 0.0; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_<a>{prismatic}_screw= kinkPair 0.81649658092 25.0 50.0e-6 0.0 50.0e-6 2.3 0.86 1.69 0.8 38.22e6 1.0 0.0 0.0 0.0 90; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 zone_angle. For HCP_primatic h/b=c/2/b = sqrt(8/3)/2 = 0.81649658092
+
+
+# Basal Gamma-surface
+basalISF_SI=213e-3; 		# [J/m^2]	intrinsic stacking fault energy (E. Cluet data)
+basalUSF_SI=261e-3; 		# [J/m^2]	unstable stacking fault energy (E. Cluet data)
+basalMSF_SI=653e-3; 		# [J/m^2]	maximum stacking fault energy (E. Cluet data)
+
+# Prismatic Gamma-surface
+prismaticWaveVectors=
+0  0
+1  0
+0  1
+1 1
+2 0;
+
+prismaticGammaSurfacePoints=
+0.0 0.0 0.0e-3
+0.5 0.0 211e-3
+0.0 0.5 1350e-3
+0.25 0.25 645e-3
+0.5 0.5 700e-3;
+
+
+# GlidePlane Noise
+glidePlaneNoise = none; 
+
+# Second Phases
+enabledSecondPhases=;
+
+# ClusterDynamics
+doseRate_dpaPerSec=0.0e-7; 		# [dpa/s] irradiation dose rate
+mobileSpeciesVector=-1;			# single vacancies
+mobileSpeciesRelRelaxVol= 0.405; 	# [-] relative vacancy relaxation volume
+mobileSpeciesEnergyFormation_eV=1.5; 	# [eV] vacancy formation energy
+mobileSpeciesEnergyMigration_eV=0.9 0 0 0.9 0 0.9; 	# [eV] anisotropic migration energies, components [11 12 13 22 23 33]
+mobileSpeciesD0_SI=4.9639e-10 0 0 4.9639e-10 0 4.9639e-10; # [m^2/s] anisotropic pre-exponential diffusion coefficients, components [11 12 13 22 23 33]
+otherSinks_SI=0.0;
+discreteDislocationBias = 1.0 1.0;

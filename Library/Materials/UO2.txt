@@ -1,0 +1,44 @@
+materialName=UO2;
+crystalStructure=CubicFluorite;
+atomsPerUnitCell=3;
+enabledSlipSystems=a/2<110>{111} a/2<110>{110} a/2<110>{100}; # types of slip systems enabled 
+b_SI=0.3868e-9;	# [m] 		Burgers vector magnitude 
+mu0_SI=95.0e9;	# [Pa] 		temperature-independent shear modulus coeff in mu=mu0+mu1*T
+mu1_SI=0.0;		# [Pa/K] 	temperature-dependent shear modulus coeff in mu=mu0+mu1*T
+nu=0.31;		# [-]		Poisson's ratio
+rho_SI=10970.0;	# [kg/m^3]	mass density
+Tm=3695.0;		# [K]		melting temperature
+
+# Mobility parameters 
+mobility_a/2<110>{111}=edgeScrew a/2<110>{111}e a/2<110>{111}s;
+mobility_a/2<110>{111}e= viscousDrag 4.26e-04 0.87e-06; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<110>{111}s= kinkPair 0.94280904158 25 9.8e-4 0.0 8.3e-05 1.63 0.86 1.69 0.8 2.03e9 1.50 1.15 2.32 4.29 60.0; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 zone_angle.
+
+mobility_a/2<110>{110}=interpolated linear a/2<110>{110}_0.0 a/2<110>{110}_30.0 a/2<110>{110}_90.0 a/2<110>{110}_150.0;
+mobility_a/2<110>{110}_0.0= viscousDrag 4.26e-04 0.87e-06; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<110>{110}_30.0= kinkPair 0.94280904158 25 9.8e-4 0.0 8.3e-05 1.63 0.86 1.69 0.8 2.03e9 1.50 1.15 2.32 4.29 60.0; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 theta_deg
+mobility_a/2<110>{110}_90.0= viscousDrag 4.26e-05 0.87e-07; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<110>{110}_150.0= viscousDrag 8.26e-04 0.87e-05; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+
+mobility_a/2<110>{100}=interpolated logarithmic a/2<110>{100}_0.0 a/2<110>{100}_30.0 a/2<110>{100}_90.0 a/2<110>{100}_150.0;
+mobility_a/2<110>{100}_0.0= viscousDrag 4.26e-04 0.87e-06; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<110>{100}_30.0= kinkPair 0.94280904158 25 9.8e-4 0.0 8.3e-05 1.63 0.86 1.69 0.8 2.03e9 1.50 1.15 2.32 4.29 60.0; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 theta_deg
+mobility_a/2<110>{100}_90.0= viscousDrag 4.26e-05 0.87e-07; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<110>{100}_150.0= viscousDrag 8.26e-04 0.87e-05; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+
+# GlidePlane Noise
+glidePlaneNoise = none; 
+
+# Second Phases
+enabledSecondPhases=;
+
+# ClusterDynamics
+doseRate_dpaPerSec=0.0e-7; 		# [dpa/s] irradiation dose rate
+mobileSpeciesVector=-1;			# single vacancies
+mobileSpeciesSurvivingEfficiency = 0.01; # Surviving efficiency
+mobileSpeciesRelRelaxVol= 0.0; 	# [-] relative vacancy relaxation volume
+mobileSpeciesEnergyFormation_eV=0.0; 	# [eV] vacancy formation energy
+mobileSpeciesEnergyMigration_eV=0.0 0 0 0.0 0 0.0; 	# [eV] anisotropic migration energies, components [11 12 13 22 23 33]
+mobileSpeciesD0_SI=0.0 0 0 0.0 0 0.0; # [m^2/s] anisotropic pre-exponential diffusion coefficients, components [11 12 13 22 23 33]
+otherSinks_SI=0.0;
+

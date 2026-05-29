@@ -1,0 +1,9 @@
+type= CircularCrack;
+style=individual;
+radii=20 50;
+nodesNumbers=20 20;
+meshSizes=10 10;
+centers=0 0 0
+        0 0 100; 
+normals=0 0 1
+        0 1 1;

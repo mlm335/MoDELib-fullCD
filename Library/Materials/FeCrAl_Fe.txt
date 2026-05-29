@@ -1,0 +1,50 @@
+materialName=FeCrAl_Fe;
+crystalStructure=BCC;
+atomsPerUnitCell=1;
+enabledSlipSystems=a/2<111>{110}; # types of slip systems enabled e.g. enabledSlipSystems=a/2<111>{110} a<100>{110};
+b_SI=0.24799e-9;    # [m]        Burgers vector magnitude ---- Check this again 
+mu0_SI=86.0e9;      # [Pa]       temperature-independent shear modulus coeff in mu=mu0+mu1*T
+mu1_SI=0.0;         # [Pa/K]     temperature-dependent shear modulus coeff in mu=mu0+mu1*T
+nu=0.291;           # [-]        Poisson's ratio
+rho_SI=7874.0;      # [kg/m^3]   mass density
+T=0;              # [K]        temperature--------Check this again
+Tm=1811.0;          # [K]        melting temperature--------Check this again
+
+
+# Mobility parameters
+mobility_a/2<111>{110}=edgeScrew a/2<111>{110}e a/2<111>{110}s;
+mobility_a/2<111>{110}e= viscousDrag 0.0 6.7e-7; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<111>{110}s= kinkPair 0.94280904158 25 2.6e-4 0.0 5e-4 0.76 0.593 1.223 0.8 542e6 1.0 0.61 0.23 0.55 60.0; # h/b w/b B0_SI B1_SI Bks_SI dH0s_eV p q Tf tauC_SI a0 a1 a2 a3 zone_angle. For BCC h/b = 2.0*sqrt(2.0)/3.0 = 0.94280904158
+
+# GlidePlane Noise
+glidePlaneNoise = none; # solid solution noise file
+
+# Second Phases
+enabledSecondPhases=;
+
+# ClusterDynamics
+doseRate_dpaPerSec=0.0e-7; 		# [dpa/s] irradiation dose rate
+mobileSpeciesVector=-1;			# single vacancies
+mobileSpeciesSurvivingEfficiency = 0.01; # Surviving efficiency
+mobileSpeciesRelRelaxVol= 0.0; 	# [-] relative vacancy relaxation volume
+mobileSpeciesEnergyFormation_eV=0.0; 	# [eV] vacancy formation energy
+mobileSpeciesEnergyMigration_eV=0.0 0 0 0.0 0 0.0; 	# [eV] anisotropic migration energies, components [11 12 13 22 23 33]
+mobileSpeciesD0_SI=0.0 0 0 0.0 0 0.0; # [m^2/s] anisotropic pre-exponential diffusion coefficients, components [11 12 13 22 23 33]
+otherSinks_SI=0.0;
+
+# Mobility parameters (G.Po et al. A phenomenological dislocation mobility law for bcc metals. Acta Mater 119, 2016)
+#dislocationMobilityType=default; # default or FCC,BCC,HEXbasal,HEXprismatic,HEXpyramidal 
+#B0e_SI=0;           # [Pa*s]     temperature-independent drag coefficient for edge dislocations
+#B1e_SI=6.7e-7;      # [Pa*s/K]   temperature-dependent drag coefficient for edge dislocations
+#B0s_SI=2.6e-4;      # [Pa*s]     temperature-independent drag coefficient for screw dislocations
+#B1s_SI=0.0;         # [Pa*s/K]   temperature-dependent drag coefficient for screw dislocations
+#Bks_SI=5e-4;         # [Pa*s]     drag coefficient for kinks
+#dH0s_eV=0.76;        # [eV]       enthalpy barrier for kink nucleation
+#ps=0.593;            # [-]        mobility exponent
+#qs=1.223;            # [-]        mobility exponent
+#Tfs=0.8;             # [-]        athermal transition temperature in fraction of Tm 
+#tauC_SI=542e6;      # [Pa]       Peierls stress
+#a0=1.00;            # [-]        non-Schmid coefficient
+#a1=0.61;            # [-]        non-Schmid coefficient
+#a2=0.23;            # [-]        non-Schmid coefficient
+#a3=0.55;            # [-]        non-Schmid coefficient

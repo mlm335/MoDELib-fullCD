@@ -1,0 +1,38 @@
+materialName=Al;
+crystalStructure=FCC;
+atomsPerUnitCell=1;
+b_SI=0.286e-9; 		# [m] 		Burgers vector magnitude 
+enabledSlipSystems=a/2<110>{111}; # types of slip systems e.g. enabledSlipSystems=a/2<110>{111} a/6<112>{111} a/3<112>{111}; 
+mu0_SI=27e9;		# [Pa] 		temperature-independent shear modulus coeff in mu=mu0+mu1*T
+mu1_SI=0.0;			# [Pa/K] 	temperature-dependent shear modulus coeff in mu=mu0+mu1*T
+nu=0.347;			# [-]		Poisson's ratio
+rho_SI=2700.0;		# [kg/m^3]	mass density
+Tm=933;				# [K] 		melting temperature
+
+# Mobility parameters
+mobility_a/2<110>{111}=edgeScrew a/2<110>{111}e a/2<110>{111}s;
+mobility_a/2<110>{111}e= viscousDrag 0.0 3.3333e-07; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+mobility_a/2<110>{111}s= viscousDrag 0.0 3.3333e-07; # mobilityType, B0_SI [Pa*s], B1_SI [Pa*s/K]. drag coefficient B= B0+B1*T
+
+# Gamma-surface
+ISF_SI=158e-3; 		# [J/m^2]	intrinsic stacking fault energy (Wu et al., Applied Surface Science 256, 2010)
+USF_SI=225e-3; 		# [J/m^2]	unstable stacking fault energy (Wu et al., Applied Surface Science 256, 2010)
+MSF_SI=450e-3; 		# [J/m^2]	maximum stacking fault energy (??)
+
+# GlidePlane Noise
+glidePlaneNoise = none; 
+
+# Second Phases
+enabledSecondPhases=;
+
+# ClusterDynamics
+doseRate_dpaPerSec=0.0e-7; 		# [dpa/s] irradiation dose rate
+mobileSpeciesVector=-1;			# single vacancies
+mobileSpeciesSurvivingEfficiency = 0.01; # Surviving efficiency
+mobileSpeciesRelRelaxVol= 0.405; 	# [-] relative vacancy relaxation volume
+mobileSpeciesEnergyFormation_eV=0.68; 	# [eV] vacancy formation energy
+mobileSpeciesEnergyMigration_eV=0.61 0 0 0.61 0 0.61; 	# [eV] anisotropic migration energies, components [11 12 13 22 23 33]
+mobileSpeciesD0_SI=4.14e-6 0 0 4.14e-6 0 4.14e-6; # [m^2/s] anisotropic pre-exponential diffusion coefficients, components [11 12 13 22 23 33]
+otherSinks_SI=0.0;
+discreteDislocationBias=1.0
+                        1.0;

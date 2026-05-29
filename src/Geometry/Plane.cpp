@@ -1,0 +1,190 @@
+/* This file is part of MoDELib, the Mechanics Of Defects Evolution Library.
+ *
+ *
+ * MoDELib is distributed without any warranty under the
+ * GNU General Public License (GPL) v2 <http://www.gnu.org/licenses/>.
+ */
+
+#ifndef model_Plane_CPP_
+#define model_Plane_CPP_
+
+#include <cfloat>
+#include <tuple>
+#include <Eigen/Dense>
+#include <Plane.h>
+
+namespace model
+{
+
+    template <int dim>
+    Plane<dim>::Plane(const VectorDim& p,const VectorDim& n) :
+    /* init */ P(p)
+    /* init */,unitNormal(n.normalized())
+    /* init */,L2G(LocalToGlobal<dim>::getL2G(unitNormal))
+    {
+        if(n.norm()<FLT_EPSILON)
+        {
+            std::cout<<"Plane: n="<<n.transpose()<<std::endl;
+            throw std::runtime_error("Plane must have non-zero normal");
+        }
+    }
+
+    template <int dim>
+    bool Plane<dim>::contains(const VectorDim& P0) const
+    {
+        return fabs((P0-P).dot(unitNormal))<FLT_EPSILON;
+    }
+
+    template <int dim>
+    bool Plane<dim>::isAbove(const VectorDim& P0) const
+    {//!\returns true if the plane is above point P0.
+        return (P0-P).dot(unitNormal)<0.0;
+    }
+
+    template <int dim>
+    bool Plane<dim>::isBelow(const VectorDim& P0) const
+    {//!\returns true if the plane is below point P0.
+        return (P0-P).dot(unitNormal)>0.0;
+    }
+
+    template <int dim>
+    typename Plane<dim>::VectorDim Plane<dim>::snapToPlane(const VectorDim& P0) const
+    {
+        return P0-(P0-P).dot(unitNormal)*unitNormal;
+    }
+
+    template <int dim>
+    double Plane<dim>::distanceTo(const VectorDim& P0) const
+    {
+        return fabs((P0-P).dot(unitNormal));
+    }
+
+    template <int dim>
+    double Plane<dim>::signedDistanceTo(const VectorDim& P0) const
+    {
+        return (P0-P).dot(unitNormal);
+    }
+
+    template <int dim>
+    typename Plane<dim>::VectorLowerDim Plane<dim>::localPosition(const VectorDim& point) const
+    {
+        const VectorDim pointLocal(L2G.transpose()*(point-P));
+        if(fabs(pointLocal(dim-1))>FLT_EPSILON)
+        {
+            std::cout<<"point="<<point.transpose()<<std::endl;
+            std::cout<<"P="<<P.transpose()<<std::endl;
+            std::cout<<"L2G=\n"<<L2G<<std::endl;
+            std::cout<<"pointLocal="<<pointLocal.transpose()<<std::endl;
+            throw std::runtime_error("Local point has non-zero z-coordinate");
+        }
+        return pointLocal.template segment<dim-1>(0);
+    }
+
+    template <int dim>
+    typename Plane<dim>::VectorDim Plane<dim>::globalPosition(const VectorLowerDim& point) const
+    {// terurns the position on the plane in global goordinates
+        return L2G.template block<dim,dim-1>(0,0)*point+P;
+    }
+
+    template <int dim>
+    typename Plane<dim>::VectorLowerDim Plane<dim>::localDirection(const VectorDim& dir) const
+    {
+        const VectorDim dirLocal(L2G.transpose()*dir);
+        if(fabs(dirLocal(dim-1))>FLT_EPSILON)
+        {
+            std::cout<<"dir="<<dir.transpose()<<std::endl;
+            std::cout<<"L2G=\n"<<L2G<<std::endl;
+            std::cout<<"dirLocal="<<dirLocal.transpose()<<std::endl;
+            throw std::runtime_error("Local point has non-zero z-coordinate");
+        }
+        return dirLocal.template segment<dim-1>(0);
+    }
+
+    template <int dim>
+    typename Plane<dim>::VectorDim Plane<dim>::globalDirection(const VectorLowerDim& dir) const
+    {// returns the direction on the plane in global goordinates
+        return L2G.template block<dim,dim-1>(0,0)*dir;
+    }
+
+    template <int dim>
+    typename Plane<dim>::MatrixDim Plane<dim>::getL2G(const VectorDim& z)
+    {
+        return LocalToGlobal<dim>::getL2G(z);
+    }
+
+    typename LocalToGlobal<1>::MatrixDim LocalToGlobal<1>::getL2G(const VectorDim&)
+    {
+        return MatrixDim::Identity();
+    }
+
+    typename LocalToGlobal<2>::MatrixDim LocalToGlobal<2>::getL2G(VectorDim y)
+    {
+        const double yNorm(y.norm());
+        if(yNorm<FLT_EPSILON)
+        {
+            throw std::runtime_error("LocalToGlobal<2>::getL2G input vector has zero norm.");
+        }
+        y/=yNorm;
+        
+        const VectorDim x((VectorDim()<<y(1),-y(0)).finished());
+        MatrixDim temp(MatrixDim::Identity());
+        temp.col(1)=y;
+        temp.col(0)=x;
+        return temp;
+    }
+
+    typename LocalToGlobal<3>::MatrixDim LocalToGlobal<3>::getL2G(VectorDim z)
+    {
+        const double zNorm(z.norm());
+        if(zNorm<FLT_EPSILON)
+        {
+            throw std::runtime_error("LocalToGlobal<3>::getL2G input vector has zero norm.");
+        }
+        assert(zNorm>FLT_EPSILON);
+        z/=zNorm;
+        
+        VectorDim x(VectorDim::UnitX().cross(z));
+        double xNorm(x.norm());
+        if(xNorm>FLT_EPSILON)
+        {
+            x=x/xNorm;
+        }
+        else
+        {
+            x=VectorDim::UnitY().cross(z);
+            xNorm=x.norm();
+            if(xNorm>FLT_EPSILON)
+            {
+                x=x/xNorm;
+            }
+            else
+            {
+                x=VectorDim::UnitZ().cross(z);
+                xNorm=x.norm();
+                if(xNorm>FLT_EPSILON)
+                {
+                    x=x/xNorm;
+                }
+                else
+                {
+                    throw std::runtime_error("CANNOT FIND VECTOR ORTHOGONAL TO z");
+                }
+            }
+        }
+        
+        assert(std::fabs(x.norm()-1.0)<FLT_EPSILON);
+        assert(std::fabs(z.norm()-1.0)<FLT_EPSILON);
+        assert(fabs(x.dot(z)<FLT_EPSILON));
+        MatrixDim temp(Eigen::Matrix3d::Identity());
+        temp.col(2)=z;
+        temp.col(0)=x;
+        temp.col(1)=temp.col(2).cross(temp.col(0));
+        return temp;
+    }
+
+    template struct Plane<1>;
+    template struct Plane<2>;
+    template struct Plane<3>;
+
+}
+#endif
