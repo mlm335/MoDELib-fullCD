@@ -172,12 +172,15 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
             const bool hasDiscreteLoops(DN->loops().size()>0? true : false);
             const double dt(this->microstructures.getDt());
             clusterDynamicsFEM->solve(dt,hasDiscreteLoops); 
-
             // clusterDynamicsFEM->solve();
-            if(cdp.discretizationTime<=this->microstructures.ddBase.simulationParameters.totalTime && !hasDiscreteLoops)
-            { // Insert the DislocationNetwork if Discretization is active: Check if time is past the discretization time 
-                std::cout << "discretization time reached, initializing discrete climb loops." << std::endl;
-                initializeDiscreteClimbLoops();
+
+            if constexpr (iSize > 0)
+            {
+                if(cdp.discretizationTime<=this->microstructures.ddBase.simulationParameters.totalTime && !hasDiscreteLoops)
+                { // Insert the DislocationNetwork if Discretization is active: Check if time is past the discretization time 
+                    std::cout << "discretization time reached, initializing discrete climb loops." << std::endl;
+                    initializeDiscreteClimbLoops();
+                }
             }
         }
         else
@@ -372,140 +375,149 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
     template<int dim>
     void ClusterDynamics<dim>::initializeDiscreteClimbLoops()
     {
-        std::default_random_engine generator;
-        auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
+        if constexpr (iSize == 0)
+        {
+            return;
+        }
+        else 
+        {
+            std::default_random_engine generator;
+            auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
 
-        for(int k=0; k < iSize/2; ++k)
-        { //Iteration species-wise
-            // for(const auto& ele : this->microstructures.ddBase.fe->elements())
-            // {
-            //     Eigen::Matrix<double,dim+1,1> bary(Eigen::Matrix<double,dim+1,1>::Constant(0.25));
-            //     const Eigen::Matrix<double,iSize,1> sinkValue(eval(clusterDynamicsFEM->immobileClusters)(ele.second,bary));
-            //     const auto cI(sinkValue.template block<iSize/2,1>(iSize/2,0));
-            //     if(cI(0)>0)
-            //     {
-            //         std::cout<< "ClusterDynamics: Negative concentration for species " << k << " in element " << ele.first << ". Concentration: " << cI(k) << std::endl;
-            //     }
-            // }
-            double tetSize(0.0);
-            std::multimap<double,const ElementType* const> CiMap; //Create Map
-            for(const auto& ele : this->microstructures.ddBase.fe->elements())
-            {
-                Eigen::Matrix<double,dim+1,1> bary(Eigen::Matrix<double,dim+1,1>::Constant(0.25));
-                const Eigen::Matrix<double,iSize,1> sinkValue(eval(clusterDynamicsFEM->immobileClusters)(ele.second,bary));
-                const auto cI(sinkValue.template block<iSize/2,1>(iSize/2,0));
-                const auto cT(cI*ele.second.simplex.vol0/cdp.omega);
-                CiMap.emplace(cT(k),&ele.second);
-            }
-            std::set<const Simplex<dim,dim>*> usedEle;
-            for(typename std::multimap<double,const ElementType* const>::reverse_iterator rIter=CiMap.rbegin(); rIter!=CiMap.rend(); rIter++)
-            {
-                const ElementType* const ele(rIter->second);
-                if(usedEle.find(&ele->simplex)==usedEle.end())
+            for(int k=0; k < iSize/2; ++k)
+            { //Iteration species-wise
+                // for(const auto& ele : this->microstructures.ddBase.fe->elements())
+                // {
+                //     Eigen::Matrix<double,dim+1,1> bary(Eigen::Matrix<double,dim+1,1>::Constant(0.25));
+                //     const Eigen::Matrix<double,iSize,1> sinkValue(eval(clusterDynamicsFEM->immobileClusters)(ele.second,bary));
+                //     const auto cI(sinkValue.template block<iSize/2,1>(iSize/2,0));
+                //     if(cI(0)>0)
+                //     {
+                //         std::cout<< "ClusterDynamics: Negative concentration for species " << k << " in element " << ele.first << ". Concentration: " << cI(k) << std::endl;
+                //     }
+                // }
+                double tetSize(0.0);
+                std::multimap<double,const ElementType* const> CiMap; //Create Map
+                for(const auto& ele : this->microstructures.ddBase.fe->elements())
                 {
-                    std::set<const Simplex<dim,dim>*> currentTets;
-                    currentTets.insert(&(ele->simplex));
-                    auto NiCiK(groupNi(currentTets,k));
-                    size_t currentTetsOldSize(currentTets.size());
-                    while(NiCiK.first<cdp.discretizationFactor)
-                    { //If not enough defects to create a loop, grab neighboring elements
-                        currentTets=vertexSetNeighbors(currentTets,usedEle);
-                        NiCiK=groupNi(currentTets,k);
-                        if(currentTets.size()==currentTetsOldSize)
-                        {
-                            break;
-                        }
-                            else
-                        {
-                            currentTetsOldSize=currentTets.size();
-                        }
-                    }
-
-                    for(const auto &tet : currentTets)
-                    {
-                        usedEle.insert(tet);
-                    }
-                    tetSize+=currentTets.size();
-
-                    const double radius(sqrt(NiCiK.second*cdp.omega/(M_PI*cdp.b*cdp.immobileSpeciesBurgersMagnitude(k))));
                     Eigen::Matrix<double,dim+1,1> bary(Eigen::Matrix<double,dim+1,1>::Constant(0.25));
-                    const auto &grain(this->microstructures.ddBase.poly.grains.at(ele->simplex.region->regionID));
-                    std::uniform_int_distribution<int> tetDistribution(0,currentTets.size()-1);
-                    auto tetIter(currentTets.begin());
-                    std::advance(tetIter,tetDistribution(generator));
-                    const VectorDim b(grain->latticeBasis*cdp.immobileSpeciesBurgers.col(k));
-                    const ReciprocalLatticeDirection<dim> n(grain->reciprocalLatticeDirection(b));
-                    VectorDim tetCenter((*tetIter)->bary2pos(bary).transpose());
-
-                    bool insertedLoop(false);
-                    while(!insertedLoop)
+                    const Eigen::Matrix<double,iSize,1> sinkValue(eval(clusterDynamicsFEM->immobileClusters)(ele.second,bary));
+                    const auto cI(sinkValue.template block<iSize/2,1>(iSize/2,0));
+                    const auto cT(cI*ele.second.simplex.vol0/cdp.omega);
+                    CiMap.emplace(cT(k),&ele.second);
+                }
+                std::set<const Simplex<dim,dim>*> usedEle;
+                for(typename std::multimap<double,const ElementType* const>::reverse_iterator rIter=CiMap.rbegin(); rIter!=CiMap.rend(); rIter++)
+                {
+                    const ElementType* const ele(rIter->second);
+                    if(usedEle.find(&ele->simplex)==usedEle.end())
                     {
-                        const long int planeIndex(n.closestPlaneIndexOfPoint(tetCenter));
-                        GlidePlaneKey<dim> glidePlaneKey(planeIndex,n);
-                        std::shared_ptr<PeriodicGlidePlane<dim>> periodicGlidePlane(this->microstructures.ddBase.periodicGlidePlaneFactory.get(glidePlaneKey)); 
-                        const VectorDim loopCenter(periodicGlidePlane->referencePlane->snapToPlane(tetCenter));
-                        std::vector<VectorDim> pts;
-                        if(radius > cdp.minimumLoopSize)
-                        {
-                            const int loopSides(12);
-                            for(int j=0; j<loopSides; ++j)
+                        std::set<const Simplex<dim,dim>*> currentTets;
+                        currentTets.insert(&(ele->simplex));
+                        auto NiCiK(groupNi(currentTets,k));
+                        size_t currentTetsOldSize(currentTets.size());
+                        while(NiCiK.first<cdp.discretizationFactor)
+                        { //If not enough defects to create a loop, grab neighboring elements
+                            currentTets=vertexSetNeighbors(currentTets,usedEle);
+                            NiCiK=groupNi(currentTets,k);
+                            if(currentTets.size()==currentTetsOldSize)
                             {
-                                Eigen::Matrix<double,2,1> pLocal(std::cos(2.0*M_PI/loopSides*j),std::sin(2.0*M_PI/loopSides*j));
-                                Eigen::Matrix<double,3,1> pGlobal(periodicGlidePlane->referencePlane->globalPosition(radius*pLocal) - periodicGlidePlane->referencePlane->P + loopCenter);
-                                if(this->microstructures.ddBase.poly.mesh.searchRegionWithGuess(pGlobal,&ele->simplex).first)
-                                {
-                                    pts.push_back(pGlobal);
-                                }
+                                break;
+                            }
                                 else
-                                {
-                                    break;
-                                }
-                            }  
-                            if(pts.size()==loopSides)
                             {
-                                insertedLoop=true;
-                                VectorDim nA(VectorDim::Zero());
-                                for(size_t k=0; k<pts.size(); ++k)
-                                {
-                                    nA += 0.5 * (pts[k]-pts.front()).cross((pts[(k+1)%pts.size()]-pts[k]));
-                                }
-                                const double trBetaLoop(-b.dot(nA.normalized()));
-                                const int signedb(cdp.immobileSpeciesVector(k)/abs(cdp.immobileSpeciesVector(k))); //negative for vacancy, positive for interstitial loops
-                                const VectorDim loopBurgers((trBetaLoop * signedb > 0)? b : -b);
-
-                                auto newLoop(DN->loops().create(loopBurgers, this->microstructures.ddBase.glidePlaneFactory.getFromKey(glidePlaneKey)));
-                                std::vector<std::shared_ptr<DislocationLoopNode<dim>>> loopNodes;
-                                for(const auto &pGlobal:pts)
-                                {
-                                    auto newNetNode(DN->networkNodes().create(pGlobal));
-                                    const auto periodicPatch(newLoop->periodicGlidePlane? newLoop->periodicGlidePlane->patches().getFromKey(VectorDim::Zero()) : nullptr);
-                                    const auto periodicPlaneEdge(std::make_pair(nullptr,nullptr));
-                                    loopNodes.push_back(DN->loopNodes().create(newLoop,newNetNode,pGlobal,periodicPatch,periodicPlaneEdge));
-                                }
-                                // const int bdn(loopBurgers.dot(nA.normalized()));
-                                // std::cout<<"Species: "<<k<<"b dot n: "<< bdn <<std::endl;
-                                DN->insertLoop(newLoop, loopNodes);
-                            }                                                      
-                            else
-                            {
-                                // std::cout<< "Some Nodes outside of Mesh: "<<std::endl;
-                                const VectorDim regionCenter(grain->region.regionCenter());
-                                tetCenter+=(0.1)*(regionCenter-tetCenter);
+                                currentTetsOldSize=currentTets.size();
                             }
                         }
-                    }
-                }   
+
+                        for(const auto &tet : currentTets)
+                        {
+                            usedEle.insert(tet);
+                        }
+                        tetSize+=currentTets.size();
+
+                        const double radius(sqrt(NiCiK.second*cdp.omega/(M_PI*cdp.b*cdp.immobileSpeciesBurgersMagnitude(k))));
+                        Eigen::Matrix<double,dim+1,1> bary(Eigen::Matrix<double,dim+1,1>::Constant(0.25));
+                        const auto &grain(this->microstructures.ddBase.poly.grains.at(ele->simplex.region->regionID));
+                        std::uniform_int_distribution<int> tetDistribution(0,currentTets.size()-1);
+                        auto tetIter(currentTets.begin());
+                        std::advance(tetIter,tetDistribution(generator));
+                        const VectorDim b(grain->latticeBasis*cdp.immobileSpeciesBurgers.col(k));
+                        const ReciprocalLatticeDirection<dim> n(grain->reciprocalLatticeDirection(b));
+                        VectorDim tetCenter((*tetIter)->bary2pos(bary).transpose());
+
+                        bool insertedLoop(false);
+                        while(!insertedLoop)
+                        {
+                            const long int planeIndex(n.closestPlaneIndexOfPoint(tetCenter));
+                            GlidePlaneKey<dim> glidePlaneKey(planeIndex,n);
+                            std::shared_ptr<PeriodicGlidePlane<dim>> periodicGlidePlane(this->microstructures.ddBase.periodicGlidePlaneFactory.get(glidePlaneKey)); 
+                            const VectorDim loopCenter(periodicGlidePlane->referencePlane->snapToPlane(tetCenter));
+                            std::vector<VectorDim> pts;
+                            if(radius > cdp.minimumLoopSize)
+                            {
+                                const int loopSides(12);
+                                for(int j=0; j<loopSides; ++j)
+                                {
+                                    Eigen::Matrix<double,2,1> pLocal(std::cos(2.0*M_PI/loopSides*j),std::sin(2.0*M_PI/loopSides*j));
+                                    Eigen::Matrix<double,3,1> pGlobal(periodicGlidePlane->referencePlane->globalPosition(radius*pLocal) - periodicGlidePlane->referencePlane->P + loopCenter);
+                                    if(this->microstructures.ddBase.poly.mesh.searchRegionWithGuess(pGlobal,&ele->simplex).first)
+                                    {
+                                        pts.push_back(pGlobal);
+                                    }
+                                    else
+                                    {
+                                        break;
+                                    }
+                                }  
+                                if(pts.size()==loopSides)
+                                {
+                                    insertedLoop=true;
+                                    VectorDim nA(VectorDim::Zero());
+                                    for(size_t k=0; k<pts.size(); ++k)
+                                    {
+                                        nA += 0.5 * (pts[k]-pts.front()).cross((pts[(k+1)%pts.size()]-pts[k]));
+                                    }
+                                    const double trBetaLoop(-b.dot(nA.normalized()));
+                                    const int signedb(cdp.immobileSpeciesVector(k)/abs(cdp.immobileSpeciesVector(k))); //negative for vacancy, positive for interstitial loops
+                                    const VectorDim loopBurgers((trBetaLoop * signedb > 0)? b : -b);
+
+                                    auto newLoop(DN->loops().create(loopBurgers, this->microstructures.ddBase.glidePlaneFactory.getFromKey(glidePlaneKey)));
+                                    std::vector<std::shared_ptr<DislocationLoopNode<dim>>> loopNodes;
+                                    for(const auto &pGlobal:pts)
+                                    {
+                                        auto newNetNode(DN->networkNodes().create(pGlobal));
+                                        const auto periodicPatch(newLoop->periodicGlidePlane? newLoop->periodicGlidePlane->patches().getFromKey(VectorDim::Zero()) : nullptr);
+                                        const auto periodicPlaneEdge(std::make_pair(nullptr,nullptr));
+                                        loopNodes.push_back(DN->loopNodes().create(newLoop,newNetNode,pGlobal,periodicPatch,periodicPlaneEdge));
+                                    }
+                                    // const int bdn(loopBurgers.dot(nA.normalized()));
+                                    // std::cout<<"Species: "<<k<<"b dot n: "<< bdn <<std::endl;
+                                    DN->insertLoop(newLoop, loopNodes);
+                                }                                                      
+                                else
+                                {
+                                    // std::cout<< "Some Nodes outside of Mesh: "<<std::endl;
+                                    const VectorDim regionCenter(grain->region.regionCenter());
+                                    tetCenter+=(0.1)*(regionCenter-tetCenter);
+                                }
+                            }
+                        }
+                    }   
+                }
             }
-        }
-        // std::cout<<"Removing values for continuous immobile clusters"<<std::endl;
-        for(size_t nodeID=0; nodeID<clusterDynamicsFEM->immobileClusters.nodeSize(); nodeID++)
-        {
-            for(int dof=0; dof<iSize; dof++)
+            // std::cout<<"Removing values for continuous immobile clusters"<<std::endl;
+            for(size_t nodeID=0; nodeID<clusterDynamicsFEM->immobileClusters.nodeSize(); nodeID++)
             {
-            //    clusterDynamicsFEM->immobileClusters.dofVector()(iSize*nodeID+dof)=1e-33;
-               TrialBase<typename ClusterDynamicsFEM<dim>::ImmobileTrialType>::dofVector()(iSize*nodeID+dof)=1e-33;
+                for(int dof=0; dof<iSize; dof++)
+                {
+                //    clusterDynamicsFEM->immobileClusters.dofVector()(iSize*nodeID+dof)=1e-33;
+                TrialBase<typename ClusterDynamicsFEM<dim>::ImmobileTrialType>::dofVector()(iSize*nodeID+dof)=1e-33;
+                }
             }
+
         }
+        
     }
 
 

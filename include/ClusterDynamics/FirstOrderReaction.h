@@ -61,11 +61,11 @@ struct FirstOrderReaction : public EvalFunction<FirstOrderReaction<MobileTrialFu
     // }
     
     /**********************************************************************/    
-    // Eigen::Array<double,iSize/2,mSize> biasDRIFT() const
-    // {
-    //     const Eigen::Matrix<double,iSize/2,1> temp(Eigen::MatrixXd::Constant(iSize/2,1,1.0));
-    //     return (temp*cdp.ZVec.matrix()).array();
-    // }
+    Eigen::Array<double,iSize/2,mSize> biasDRIFT() const
+    {
+        const Eigen::Matrix<double,iSize/2,1> temp(Eigen::MatrixXd::Constant(iSize/2,1,1.0));
+        return (temp*cdp.immobileBias.matrix()).array();
+    }
    
     /**********************************************************************/
     Eigen::Array<double,iSize/2,mSize> biasDAD(Eigen::Array<double,1,mSize>& p) const
@@ -111,7 +111,7 @@ struct FirstOrderReaction : public EvalFunction<FirstOrderReaction<MobileTrialFu
         }
         
         // const Eigen::Array<double,iSize/2,mSize> ZSIPA(biasSIPA(ExternalS,gID));
-        // const Eigen::Array<double,iSize/2,mSize> ZDRIFT(biasDRIFT());
+        const Eigen::Array<double,iSize/2,mSize> ZDRIFT(biasDRIFT());
         const Eigen::Array<double,iSize/2,mSize> ZDAD(biasDAD(p));
         
         //std::cout<<sinkValue.minCoeff()<<std::endl;
@@ -133,7 +133,7 @@ struct FirstOrderReaction : public EvalFunction<FirstOrderReaction<MobileTrialFu
         const Eigen::Array<double,iSize/2,mSize> rhodD((disDensity*aveD.matrix()).array());
         
         // const Eigen::Array<double,iSize/2,mSize> Zloop = ZSIPA*ZDRIFT*ZDAD;
-        const Eigen::Array<double,iSize/2,mSize> Zloop = ZDAD;
+        const Eigen::Array<double,iSize/2,mSize> Zloop = ZDAD*ZDRIFT;
         const Eigen::Array<double,iSize/2,mSize> Zpyr(Eigen::Array<double,iSize/2,mSize>::Ones());
         Eigen::Array<double,iSize/2,mSize> Ztotal(Eigen::Array<double,iSize/2,mSize>::Zero());
         
