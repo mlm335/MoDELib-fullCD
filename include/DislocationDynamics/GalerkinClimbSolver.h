@@ -43,6 +43,10 @@ namespace model
         typedef Eigen::SparseMatrix<double> SparseMatrixType;
         typedef std::deque<Eigen::Triplet<double> > TripletContainerType;
 
+        const double solverType;
+        const double sparsity_threshold;
+        const double diagonal_compensation;
+
         ForceVectorMatrixType clusterForceVector(const NetworkLinkType& networkLink) const;
         ForceVectorMatrixType clusterForceKernel(const int& k,const NetworkLinkType& networkLink) const;
         StiffnessMatrixType clusterStiffnessKernel(const int& k,const NetworkLinkType& fieldSegment,const NetworkLinkType& sourceSegment) const;

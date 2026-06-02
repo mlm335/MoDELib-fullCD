@@ -205,6 +205,7 @@ template struct InvDscaling<3>;
     void ClusterDynamicsFEM<dim>::solve(const double dt, const bool hasDiscreteLoops)
     {
         solveMobileClusters(hasDiscreteLoops);
+        
         const bool useImmobileClusters(!hasDiscreteLoops && iSize > 0);
         if(useImmobileClusters)
         {

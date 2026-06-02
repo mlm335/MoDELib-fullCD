@@ -1,0 +1,11 @@
+materialFile=Al.txt;
+absoluteTemperature=470; # [K] simulation temperature 
+meshFile=unitCube24.msh; # mesh file 
+C2G1=0.0 0.7071067811865475 0.7071067811865475
+     0.816496580927726 0.408248290463863 -0.408248290463863
+     -0.5773502691896258 0.5773502691896258 -0.5773502691896258; # crystal rotation matrix 
+F=1499.9999999999998 0.0 -9.059419880941277e-14
+  0.0 1499.9559993546477 -4.529709940470639e-14
+  0.0 0.0 1499.0877225833053; # mesh deformation gradient. Mesh nodes X are mapped to x=F*(X-X0) 
+X0=0 0 0; # mesh shift. Mesh nodes X are mapped to x=F*(X-X0) 
+periodicFaceIDs=-1; # IDs of faces labelled as periodic 
