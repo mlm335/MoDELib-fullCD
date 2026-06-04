@@ -57,7 +57,7 @@ diagonal_compensation=0.5; // this is in the range 0-1. User input
 
 ######################################
 # DISLOCATION ELASTIC FIELDS
-quadPerLength=0.1; # number of quadrature points per unit length (in Burgers vector units)
+quadPerLength=1; # number of quadrature points per unit length (in Burgers vector units)
 coreSize=2.0; # The dislocation core width, used in the non-singular expression of the dislocation stress field
 alphaLineTension=1.0; # dimensionless scale factor in for line tension forces
 

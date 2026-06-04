@@ -16,6 +16,7 @@
 #include <TerminalColors.h>
 #include <EqualIteratorRange.h>
 #include <TextFileParser.h>
+#include <SparsifiedMatrix.h>
 
 namespace model
 {
@@ -24,8 +25,8 @@ namespace model
     GalerkinClimbSolver<DislocationNetworkType>::GalerkinClimbSolver(const DislocationNetworkType& DN_in,const ClusterDynamics<dim>* const CD_in) :
     /* init */ DislocationClimbSolverBase<DislocationNetworkType>(DN_in,CD_in)
     /* init */,solverType(TextFileParser(CD_in->microstructures.ddBase.simulationParameters.traitsIO.ddFile).readScalar<double>("solverType",true))
-    /* init */,sparsity_threshold(TextFileParser(CD_in->microstructures.ddBase.simulationParameters.traitsIO.ddFile).readScalar<double>("sparsity_threshold",true))
-    /* init */,diagonal_compensation(TextFileParser(CD_in->microstructures.ddBase.simulationParameters.traitsIO.ddFile).readScalar<double>("diagonal_compensation",true))
+    /* init */,solverTol(TextFileParser(CD_in->microstructures.ddBase.simulationParameters.traitsIO.ddFile).readScalar<double>("solverTol",true))
+    /* init */,relativeInteractionThreshold(TextFileParser(CD_in->microstructures.ddBase.simulationParameters.traitsIO.ddFile).readScalar<double>("relativeInteractionThreshold",true))
     {
         std::cout<<greenBoldColor<<"Creating GalerkinClimbSolver"<<defaultColor<<std::endl;
     }
@@ -110,7 +111,6 @@ namespace model
             auto& Fc_ref(FcT[thread]);
             auto& KKc_ref(KKcT[thread]);
             for(auto fieldLinkIter=eir[thread].first;fieldLinkIter!=eir[thread].second;++fieldLinkIter)
-//            for(const auto& fieldLink : this->DN.networkLinks())
             {// sum line-integral part of displacement field per segment
                 const auto& fieldLink(*fieldLinkIter);
 #else
@@ -118,132 +118,123 @@ namespace model
                 auto& Fc_ref(Fc);
                 auto& KKc_ref(KKc);
                 for(const auto& fieldLink : this->DN.networkLinks())
-                {
+                { // sum line-integral part of displacement field per segment
 #endif
-////#pragma omp parallel for
-//        for(size_t thread=0;thread< eir.size();++thread)
-//        {
-//            for(auto fieldLinkIter=eir[thread].first;fieldLinkIter!=eir[thread].second;++fieldLinkIter)
-////            for(const auto& fieldLink : this->DN.networkLinks())
-//            {// sum line-integral part of displacement field per segment
-//                const auto& fieldLink(*fieldLinkIter);
-                if(   !fieldLink.second.lock()->hasZeroBurgers()
-                   && fieldLink.second.lock()->isSessile()
-                   && !fieldLink.second.lock()->isBoundarySegment()
-                   && !fieldLink.second.lock()->isGrainBoundarySegment()
-                   &&  fieldLink.second.lock()->chordLength()>FLT_EPSILON
-                   )
-                {
-                    const size_t i0(fieldLink.second.lock()->source->gID());
-                    const size_t i1(fieldLink.second.lock()->  sink->gID());
-                    
-                    const ForceVectorMatrixType fc(clusterForceVector(*fieldLink.second.lock()));
-                    for(int kc=0; kc<mSize; ++kc)
+                    if(   !fieldLink.second.lock()->hasZeroBurgers()
+                    && fieldLink.second.lock()->isSessile()
+                    && !fieldLink.second.lock()->isBoundarySegment()
+                    && !fieldLink.second.lock()->isGrainBoundarySegment()
+                    &&  fieldLink.second.lock()->chordLength()>FLT_EPSILON
+                    )
                     {
-                        Fc_ref[kc](i0)+=fc(0,kc);
-                        Fc_ref[kc](i1)+=fc(1,kc);
-                    }
-                    
-                    for(const auto& sourceLink : this->DN.networkLinks())
-                    {// sum line-integral part of displacement field per segment
-                        if(   !sourceLink.second.lock()->hasZeroBurgers()
-                           && !sourceLink.second.lock()->isBoundarySegment()
-                           && !sourceLink.second.lock()->isGrainBoundarySegment()
-                           &&  sourceLink.second.lock()->chordLength()>FLT_EPSILON
-                           )
+                        const size_t i0(fieldLink.second.lock()->source->gID());
+                        const size_t i1(fieldLink.second.lock()->  sink->gID());
+                        
+                        const ForceVectorMatrixType fc(clusterForceVector(*fieldLink.second.lock()));
+                        for(int kc=0; kc<mSize; ++kc)
                         {
-                            const size_t j0(sourceLink.second.lock()->source->gID());
-                            const size_t j1(sourceLink.second.lock()->  sink->gID());
-                            const StiffnessMatrixType kcc(clusterStiffnessMatrix(*fieldLink.second.lock(),*sourceLink.second.lock()));
-                            
-                            for(int kc=0; kc<mSize; ++kc)
-                            {
-                                const Eigen::Matrix<double,2,2> kccs(kcc.template block<2,2>(2*kc,0));
-                                
-                                if(solverType==0) // lumped solver
+                            Fc_ref[kc](i0)+=fc(0,kc);
+                            Fc_ref[kc](i1)+=fc(1,kc);
+                        }
+                        
+                        if(solverType==0)
+                        { // Lumped Solver
+                            for(const auto& sourceLink : this->DN.networkLinks())
+                            {// sum line-integral part of displacement field per segment
+                                if(   !sourceLink.second.lock()->hasZeroBurgers()
+                                && !sourceLink.second.lock()->isBoundarySegment()
+                                && !sourceLink.second.lock()->isGrainBoundarySegment()
+                                &&  sourceLink.second.lock()->chordLength()>FLT_EPSILON)
                                 {
-                                    KKc_ref[kc](i0)+=0.5*kccs(0,0)+0.5*kccs(0,1);
-                                    KKc_ref[kc](j0)+=0.5*kccs(0,0)+0.5*kccs(1,0);
-                                    KKc_ref[kc](i1)+=0.5*kccs(1,0)+0.5*kccs(1,1);
-                                    KKc_ref[kc](j1)+=0.5*kccs(0,1)+0.5*kccs(1,1);
-                                }
-                                else if(solverType==1 || solverType==2) // semi-lumped or full solver
-                                {
-                                    // Assemble Directly
-                                    // lhsT_ref[kc].emplace_back(i0,j0,kccs(0,0));
-                                    // lhsT_ref[kc].emplace_back(i0,j1,kccs(0,1));
-                                    // lhsT_ref[kc].emplace_back(i1,j0,kccs(1,0));
-                                    // lhsT_ref[kc].emplace_back(i1,j1,kccs(1,1));
-                                    
-                                    // Force Symmetry 
-                                    lhsT_ref[kc].emplace_back(i0,j0,0.5*kccs(0,0));
-                                    lhsT_ref[kc].emplace_back(i0,j1,0.5*kccs(0,1));
-                                    lhsT_ref[kc].emplace_back(i1,j0,0.5*kccs(1,0));
-                                    lhsT_ref[kc].emplace_back(i1,j1,0.5*kccs(1,1));
-                                    lhsT_ref[kc].emplace_back(j0,i0,0.5*kccs(0,0));
-                                    lhsT_ref[kc].emplace_back(j1,i0,0.5*kccs(0,1));
-                                    lhsT_ref[kc].emplace_back(j0,i1,0.5*kccs(1,0));
-                                    lhsT_ref[kc].emplace_back(j1,i1,0.5*kccs(1,1));
-                                }
-                                else
-                                {
-                                    throw std::runtime_error("GalerkinClimbSolver: unknown solverType.");
-                                }
+                                    const size_t j0(sourceLink.second.lock()->source->gID());
+                                    const size_t j1(sourceLink.second.lock()->  sink->gID());
+                                    const StiffnessMatrixType kcc(clusterStiffnessMatrix(*fieldLink.second.lock(),*sourceLink.second.lock()));
 
-                                        
-                                        //lhsT[kc].emplace_back(i0,i0,0.5*kccs(0,0));
-                                        //lhsT[kc].emplace_back(j0,j0,0.5*kccs(0,0));
-                                        
-                                        //lhsT[kc].emplace_back(i0,i0,0.5*kccs(0,1));
-//                                        lhsT[kc].emplace_back(j1,j1,0.5*kccs(0,1));
-                                        
-//                                        lhsT[kc].emplace_back(i1,i1,0.5*kccs(1,0));
-                                        //lhsT[kc].emplace_back(j0,j0,0.5*kccs(1,0));
-                                        
-  //                                      lhsT[kc].emplace_back(i1,i1,0.5*kccs(1,1));
-//                                        lhsT[kc].emplace_back(j1,j1,0.5*kccs(1,1));
-//                                    }
-//                                }
-//                                else
-//                                {
-//                                    const bool forceSym(true);// at the moment we need to symmtrize, since numerical intgration on fieldLink is not equivalent to analytical integration on sourceLink
-//                                    if(forceSym)
-//                                    {
-//#ifdef _OPENMP
-//#pragma omp critical
-//#endif
-//                                        {
-//                                            lhsT[kc].emplace_back(i0,j0,0.5*kccs(0,0));
-//                                            lhsT[kc].emplace_back(i0,j1,0.5*kccs(0,1));
-//                                            lhsT[kc].emplace_back(i1,j0,0.5*kccs(1,0));
-//                                            lhsT[kc].emplace_back(i1,j1,0.5*kccs(1,1));
-//                                            
-//                                            lhsT[kc].emplace_back(j0,i0,0.5*kccs(0,0));
-//                                            lhsT[kc].emplace_back(j1,i0,0.5*kccs(0,1));
-//                                            lhsT[kc].emplace_back(j0,i1,0.5*kccs(1,0));
-//                                            lhsT[kc].emplace_back(j1,i1,0.5*kccs(1,1));
-//                                        }
-//                                    }
-//                                    else
-//                                    {
-//#ifdef _OPENMP
-//#pragma omp critical
-//#endif
-//                                        {
-//                                            lhsT[kc].emplace_back(i0,j0,kccs(0,0));
-//                                            lhsT[kc].emplace_back(i0,j1,kccs(0,1));
-//                                            lhsT[kc].emplace_back(i1,j0,kccs(1,0));
-//                                            lhsT[kc].emplace_back(i1,j1,kccs(1,1));
-//                                        }
-//                                    }
-//                                }
+                                    for(int kc=0; kc<mSize; ++kc)
+                                    {
+                                        const Eigen::Matrix<double,2,2> kccs(kcc.template block<2,2>(2*kc,0));
+                                        KKc_ref[kc](i0)+=0.5*kccs(0,0)+0.5*kccs(0,1);
+                                        KKc_ref[kc](j0)+=0.5*kccs(0,0)+0.5*kccs(1,0);
+                                        KKc_ref[kc](i1)+=0.5*kccs(1,0)+0.5*kccs(1,1);
+                                        KKc_ref[kc](j1)+=0.5*kccs(0,1)+0.5*kccs(1,1);
+                                    }
+                                }
                             }
                         }
-                    }
+                        else if(solverType == 1)
+                        { // Full solver with symmetry and loop-based sparsification
+                            for(const auto& loopPair : this->DN.loops())
+                            {
+                                const auto loopPtr = loopPair.second.lock();
+                                const auto fieldPtr = fieldLink.second.lock();
+                                bool sameLoop = false;
+                                for(const auto& fID : fieldPtr->loopIDs())
+                                {
+                                    if(fID == loopPtr->sID)
+                                    {
+                                        sameLoop = true;
+                                        break;
+                                    }
+                                }
+                                const auto distRange = loopPtr->distanceRangeTo(*fieldPtr);
+                                const double dMin = distRange.first;
+                                const double dMax = distRange.second;
+                                const double loopSize = dMax - dMin;
+                                if(sameLoop || (loopSize > FLT_EPSILON && dMin < relativeInteractionThreshold * loopSize))
+                                {
+                                    // std::cout << "FIELD SEGMENT (" << i0 << "," << i1 << ") " << "gets LOOP " << loopPtr->sID << " sameLoop=" << sameLoop << std::endl;
+                                    for(const auto& loopLink : loopPtr->loopLinks())
+                                    {
+                                        if(!loopLink->networkLink())
+                                        {
+                                            continue;
+                                        }
+                                        const auto sourcePtr = loopLink->networkLink();
+                                        if( !sourcePtr->hasZeroBurgers() 
+                                        && !sourcePtr->isBoundarySegment() 
+                                        && !sourcePtr->isGrainBoundarySegment() 
+                                        &&  sourcePtr->chordLength() > FLT_EPSILON)
+                                        {                                    
+                                            const size_t j0(sourcePtr->source->gID());
+                                            const size_t j1(sourcePtr->sink->gID());
+                                            const StiffnessMatrixType kcc(clusterStiffnessMatrix(*fieldPtr,*sourcePtr));
+                                            for(int kc=0; kc<mSize; ++kc)
+                                            {
+                                                const Eigen::Matrix<double,2,2> kccs(kcc.template block<2,2>(2*kc,0));
+                                                const bool forceSym(true);
+                                                if (forceSym)
+                                                { // Force Symmetry 
+                                                    lhsT_ref[kc].emplace_back(i0,j0,0.5*kccs(0,0));
+                                                    lhsT_ref[kc].emplace_back(i0,j1,0.5*kccs(0,1));
+                                                    lhsT_ref[kc].emplace_back(i1,j0,0.5*kccs(1,0));
+                                                    lhsT_ref[kc].emplace_back(i1,j1,0.5*kccs(1,1));
+                                                    lhsT_ref[kc].emplace_back(j0,i0,0.5*kccs(0,0));
+                                                    lhsT_ref[kc].emplace_back(j1,i0,0.5*kccs(0,1));
+                                                    lhsT_ref[kc].emplace_back(j0,i1,0.5*kccs(1,0));
+                                                    lhsT_ref[kc].emplace_back(j1,i1,0.5*kccs(1,1));
+                                                }
+                                                else
+                                                { // Assemble Directly from kcc
+                                                    lhsT_ref[kc].emplace_back(i0,j0,kccs(0,0));
+                                                    lhsT_ref[kc].emplace_back(i0,j1,kccs(0,1));
+                                                    lhsT_ref[kc].emplace_back(i1,j0,kccs(1,0));
+                                                    lhsT_ref[kc].emplace_back(i1,j1,kccs(1,1));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            throw std::runtime_error("GalerkinClimbSolver: unknown solverType.");
+                        }
+                    } 
                 }
-            }
+
 #ifdef _OPENMP
-        }
+            }
             for(size_t thread=0;thread< eir.size();++thread)
             {// recombine contributions of different threads
                 for(int kc=0; kc<mSize; ++kc)
@@ -251,24 +242,18 @@ namespace model
                     Fc[kc]+=FcT[thread][kc];
                     KKc[kc]+=KKcT[thread][kc];
                     lhsT[kc].insert(lhsT[kc].end(),lhsTV[thread][kc].begin(),lhsTV[thread][kc].end());
-//                    lhsT[kc].insert(lhsT[kc].end(), lhsTV[thread][kc].begin(), lhsTV[thread][kc].end());
                 }
             }
 #endif
-        
+    
         // Eigen::SparseMatrix<double> Kcc(this->DN.networkNodes().size(),this->DN.networkNodes().size());
         std::vector<Eigen::Array<double,1,mSize>> nodeV(this->DN.networkNodes().size(),Eigen::Array<double,1,mSize>::Zero());
         
         for(int kc=0; kc<mSize; ++kc)
         {
-//            Kcc.setFromTriplets(lhsT[kc].begin(),lhsT[kc].end());
-//            if(size_t(Kcc.rows())!=this->DN.networkNodes().size() || size_t(Kcc.cols())!=this->DN.networkNodes().size())
-//            {
-//                throw std::runtime_error("the Stiffness Matrix size is not equal to the node size.");
-//            }
             
-            if(solverType == 0) // lumped solver
-            {
+            if(solverType == 0) 
+            { // Lumped solver
                 for (size_t n=0; n<this->DN.networkNodes().size(); n++)
                 {
                     if(std::fabs(KKc[kc](n))>FLT_EPSILON)
@@ -277,71 +262,21 @@ namespace model
                     }
                 }
             }
-            else if(solverType == 1) // semi - lumped solver
-            {
-                std::runtime_error("GalerkinClimbSolver: semi-lumped solver is not implemented yet.");
-                // Eigen::SparseMatrix<double> Kcc(this->DN.networkNodes().size(),this->DN.networkNodes().size());
-                // Kcc.setFromTriplets(lhsT[kc].begin(),lhsT[kc].end());
-
-                // // Redue Kcc with threshold 
-                // Eigen::VectorXd diag = Kcc.diagonal();
-                // std::vector<Eigen::Triplet<double>> reducedTriplets;
-                // for(int col=0; col<Kcc.outerSize(); ++col)
-                // {
-                //     for(Eigen::SparseMatrix<double>::InnerIterator it(Kcc,col); it; ++it)
-                //     {
-                //         const int i = it.row();
-                //         const int j = it.col();
-                //         const double Kij = it.value();
-
-                //         if(i > j)
-                //         {
-                //             continue; // only upper triangle
-                //         }
-
-                //         if(i == j)
-                //         {
-                //             reducedTriplets.emplace_back(i,j,Kij);
-                //         }
-                //         else
-                //         {
-                //             const double threshold = sparsity_threshold * std::sqrt(std::fabs(diag(i)*diag(j)));
-                //             if(std::fabs(Kij) < threshold)
-                //             {
-                //                 reducedTriplets.emplace_back(i,i,2*diagonal_compensation*std::fabs(Kij));
-                //                 reducedTriplets.emplace_back(j,j,2*diagonal_compensation*std::fabs(Kij));
-                //             }
-                //             else
-                //             {
-                //                 reducedTriplets.emplace_back(i,j,Kij);
-                //                 reducedTriplets.emplace_back(j,i,Kij);
-                //             }
-                //         }
-                //     }
-                // }
-                // Kcc.setZero();
-                // Kcc.setFromTriplets(reducedTriplets.begin(), reducedTriplets.end());
-
-                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
-                // solver.compute(Kcc);
-                // const Eigen::VectorXd vc = solver.solve(Fc[kc]);
-                // for(size_t n=0; n<this->DN.networkNodes().size(); n++)
-                // {
-                //     nodeV[n](kc)=vc(n);
-                // }
-            }
-            else if(solverType == 2) // full solver
-            {
+            else if(solverType == 1) 
+            { // full solver
                 Eigen::SparseMatrix<double> Kcc(this->DN.networkNodes().size(),this->DN.networkNodes().size());
                 Kcc.setFromTriplets(lhsT[kc].begin(), lhsT[kc].end());
- 
+                std::cout << ", sparsification efficiency " << double(this->DN.networkNodes().size()*this->DN.networkNodes().size() - Kcc.nonZeros()) / (this->DN.networkNodes().size()*this->DN.networkNodes().size()) << std::endl;
+                
+                if(size_t(Kcc.rows())!=this->DN.networkNodes().size() || size_t(Kcc.cols())!=this->DN.networkNodes().size())
+                {
+                    throw std::runtime_error("the Stiffness Matrix size is not equal to the node size.");
+                }
+
                 Eigen::MINRES<Eigen::SparseMatrix<double>, Eigen::Lower|Eigen::Upper> solver;
-                solver.setTolerance(1e-4);
+                solver.setTolerance(solverTol);
                 solver.setMaxIterations(1e6);
                 solver.compute(Kcc);
-
-                // Eigen::SimplicialLDLT<Eigen::SparseMatrix<double>> solver;
-                // solver.compute(Kcc);
 
                 const Eigen::VectorXd vc = solver.solve(Fc[kc]);
                 for(size_t n=0; n<this->DN.networkNodes().size(); n++)

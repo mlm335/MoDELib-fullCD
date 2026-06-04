@@ -519,6 +519,27 @@ namespace model
     }
 
     template <int dim>
+    std::pair<double,double> DislocationLoop<dim>::distanceRangeTo(const DislocationSegment<dim>& segment) const
+    {
+        FiniteLineSegment<dim> L1(segment.source->get_P(),segment.sink->get_P());
+        double minDist(std::numeric_limits<double>::max());
+        double maxDist(0.0);
+        for(const auto& link : this->loopLinks())
+        {
+            if(link->networkLink())
+            {
+                FiniteLineSegment<dim> L2(link->networkLink()->source->get_P(),link->networkLink()->sink->get_P());
+                const double dist(L1.distanceTo(L2).dMin);
+                minDist = std::min(minDist,dist);
+                maxDist = std::max(maxDist,dist);
+            }
+        }
+        return std::make_pair(minDist, maxDist);
+    }
+
+
+
+    template <int dim>
     int DislocationLoop<dim>::verboseDislocationLoop=0;
 
     template class DislocationLoop<3>;
