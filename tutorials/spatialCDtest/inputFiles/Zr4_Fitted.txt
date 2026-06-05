@@ -64,7 +64,7 @@ enabledSecondPhases=;
 
 #- ClusterDynamics -#
 doseRate_dpaPerSec=1.0e-7; 		# [dpa/s] irradiation dose rate
-mobileSpeciesVector=-1 1 2 3;			# single vacancies
+mobileSpeciesVector=-1 +1 +2 +3;			# single vacancies
 mobileSpeciesSurvivingEfficiency=0.01; # Surviving efficiency
 mobileSpeciesCascadeFractions=1.0 0.6 0.3212 0.0788;
 mobileSpeciesRelRelaxVol=0.405 1.2 1.2 1.2; 	# [-] relative vacancy relaxation volume
@@ -89,8 +89,8 @@ reactionPrefactorMap=-1 -1 0.0
               2  2 0.0
               2  3 0.0
               3  3 0.0; # Reaction map between species (species,species,reaction prefactor)
-discreteDislocationBias=1.0 1.05 1.05 1.05
-                        1.0 1.1 1.1 1.1; # [-] Elastic Bias interaction scaling factor between discrete dislocation loops [v;i] and mobile species [v,i,2i,...]
+discreteDislocationBias=1.0 1.0 1.0 1.0
+                        1.0 1.0 1.0 1.0; # [-] Elastic Bias interaction scaling factor between discrete dislocation loops [v;i] and mobile species [v,i,2i,...]
 
 #- Immobile Species -#
 immobileSpeciesVector=-1 +1 +1 +1; #[c a1 a2 a3], loop sign vectors
@@ -98,7 +98,7 @@ immobileSpeciesBurgers=0 1 0 -1
                         0 0 1 1
                         1 0 0 0; # Each column is a Burgers vector (component for lattice basis) for immobile loops
 immobileSpeciesRelRelaxVol= 0.1 0.01 0.01 0.01; # Relative relaxation volume for loops [... c a1 a2 a3 ...]
-immobileBias=1.05 1.1 1.1 1.1;
+immobileBias=1.0 1.0 1.0 1.0;
 
 #- Bi-Pyramids -#
 alpha_bp = 0.4; # [-] bi-pyramid sink strength coefficient

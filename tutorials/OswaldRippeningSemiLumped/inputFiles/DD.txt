@@ -53,7 +53,7 @@ climbSolverType=Galerkin; # type of glide solver (Galerkin or none)
 glideEquilibriumRate=1e-12; # climb rate threshold below which climb steps are taken
 solverType=1; # 0:Lumped, 1:Full Solver with loop-based sparsification
 solverTol=1e-4; # Full iterative solver tolerance
-relativeInteractionThreshold=10; # Maximum distance-to-loop-size ratio for retaining an interaction.
+relativeInteractionThreshold=100; # Maximum distance-to-loop-size ratio for retaining an interaction.
 
 ######################################
 # DISLOCATION ELASTIC FIELDS
@@ -67,7 +67,7 @@ remeshFrequency=5; # Enable/disable node redistribution
 Lmin=450; # min segment length (in Burgers vector units)
 Lmax=500; # max segment length (in Burgers vector units)
 relativeAreaThreshold=0.001;
-absoluteAreaThreshold=100;
+absoluteAreaThreshold=150;
 
 ######################################
 # DISLOCATION JUNCTIONS

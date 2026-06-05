@@ -69,7 +69,20 @@ namespace model
             const std::pair<bool,const ElementType*> temp(TrialBaseType::fe().searchWithGuess(P,guess));
             if(temp.first)
             {
-                return trialExp().sfm(*(temp.second),temp.second->simplex.pos2bary(P))*TrialBaseType::dofs(*(temp.second));
+                auto bary(temp.second->simplex.pos2bary(P));
+                for(int d=0; d<dim+1; d++)
+                {
+                    if(bary(d)<0.0)
+                    {
+                        bary(d)=0.0;
+                    }
+                    if(bary(d)>1.0)
+                    {
+                        bary(d)=1.0;
+                    }
+                }
+                // return trialExp().sfm(*(temp.second),temp.second->simplex.pos2bary(P))*TrialBaseType::dofs(*(temp.second));
+                return trialExp().sfm(*(temp.second),bary)*TrialBaseType::dofs(*(temp.second));
             }
             else
             {

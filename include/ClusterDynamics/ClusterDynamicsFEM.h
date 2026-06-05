@@ -164,8 +164,8 @@ namespace model
 
         ClusterDynamicsFEM(DislocationDynamicsBase<dim>& ddBase_in,const ClusterDynamicsParameters<dim>& cdp_in);
         void solveMobileClusters(const bool hasDiscreteLoops);
-        void solveImmobileClusters(const double dt, const bool hasDiscreteLoops);
-        void solve(const double dt, const bool hasDiscreteLoops);
+        void updateImmobileClusters(const double dt);
+        void solve(const bool hasDiscreteLoops);
 //        void applyBoundaryConditions();
         void initializeConfiguration(const DDconfigIO<dim>& configIO,const std::ofstream& f_file,const std::ofstream& F_labels);
         void initializeSolver();

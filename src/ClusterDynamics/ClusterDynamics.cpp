@@ -171,17 +171,16 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
             auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
             const bool hasDiscreteLoops(DN->loops().size()>0? true : false);
             const double dt(this->microstructures.getDt());
-            clusterDynamicsFEM->solve(dt,hasDiscreteLoops); 
+            clusterDynamicsFEM->solve(hasDiscreteLoops); 
             // clusterDynamicsFEM->solve();
-
-            if constexpr (iSize > 0)
-            {
-                if(cdp.discretizationTime<=this->microstructures.ddBase.simulationParameters.totalTime && !hasDiscreteLoops)
-                { // Insert the DislocationNetwork if Discretization is active: Check if time is past the discretization time 
-                    std::cout << "discretization time reached, initializing discrete climb loops." << std::endl;
-                    initializeDiscreteClimbLoops();
-                }
-            }
+            // if constexpr (iSize > 0)
+            // {
+            //     if(cdp.discretizationTime<=this->microstructures.ddBase.simulationParameters.totalTime && !hasDiscreteLoops)
+            //     { // Insert the DislocationNetwork if Discretization is active: Check if time is past the discretization time 
+            //         std::cout << "discretization time reached, initializing discrete climb loops." << std::endl;
+            //         initializeDiscreteClimbLoops();
+            //     }
+            // }
         }
         else
         {
@@ -192,6 +191,26 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
     template<int dim>
     void ClusterDynamics<dim>::updateConfiguration()
     {
+        if(clusterDynamicsFEM)
+        {
+            auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
+            const bool hasDiscreteLoops(DN->loops().size()>0 ? true : false);
+            const double dt(this->microstructures.getDt());
+
+            if constexpr (iSize > 0)
+            {
+                if(!hasDiscreteLoops)
+                {
+                    clusterDynamicsFEM->updateImmobileClusters(dt);
+                }
+
+                if(cdp.discretizationTime <= this->microstructures.ddBase.simulationParameters.totalTime && !hasDiscreteLoops)
+                {
+                    std::cout << " initializing discrete climb loops, " << std::endl;
+                    initializeDiscreteClimbLoops();
+                }
+            }
+        }
         this->lastUpdateTime=this->microstructures.ddBase.simulationParameters.totalTime;
     }
 

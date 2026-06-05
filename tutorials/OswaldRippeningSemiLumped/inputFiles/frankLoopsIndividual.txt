@@ -2,7 +2,7 @@ type=FrankLoops;
 style=individual;
 planeIDs=0 0 0 0 0;
 loopRadii_SI=360e-10 180e-10 180e-10 180e-10 180e-10; # [m]
-loopSides=120 20 20 20 20; # [-]
+loopSides=20 20 20 20 20; # [-]
 loopCenters=
  0        0        0
  150  150 0

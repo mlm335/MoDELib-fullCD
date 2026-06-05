@@ -189,12 +189,10 @@ struct ImmobileSinkRate : public EvalFunction<ImmobileSinkRate<MobileTrialFuncti
         const Eigen::Matrix<double,rows,mSize> sStrengh(sinkStrengths(sinkvalue,gID));
         const Eigen::Matrix<double,mSize,mSize> speciesFactors(cdp.msVector.matrix().asDiagonal());
         const Eigen::Array<double,rows/2,1> fluxs((sStrengh.template block<rows/2,mSize>(0,0)*(speciesFactors*Cvalue)).array());
-
-        // std::cout << "Fluxes: " << fluxs.transpose() << std::endl;
         
         Eigen::Matrix<double,rows,cols> temp(Eigen::Matrix<double,rows,cols>::Zero());
         temp.template block<rows/2,cols>(rows/2,0) = (cdp.immobileSpeciesVector.transpose()*fluxs).matrix();
-        
+
         return  temp;
     }
     

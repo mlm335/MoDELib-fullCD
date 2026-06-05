@@ -195,9 +195,10 @@ namespace model
                                         && !sourcePtr->isGrainBoundarySegment() 
                                         &&  sourcePtr->chordLength() > FLT_EPSILON)
                                         {                                    
+                                            const double loopMultiplicity = std::max(1.0, static_cast<double>(sourcePtr->loopIDs().size()));
                                             const size_t j0(sourcePtr->source->gID());
                                             const size_t j1(sourcePtr->sink->gID());
-                                            const StiffnessMatrixType kcc(clusterStiffnessMatrix(*fieldPtr,*sourcePtr));
+                                            const StiffnessMatrixType kcc(clusterStiffnessMatrix(*fieldPtr,*sourcePtr)/loopMultiplicity);
                                             for(int kc=0; kc<mSize; ++kc)
                                             {
                                                 const Eigen::Matrix<double,2,2> kccs(kcc.template block<2,2>(2*kc,0));

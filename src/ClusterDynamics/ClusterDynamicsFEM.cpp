@@ -120,6 +120,8 @@ template struct InvDscaling<3>;
                 FirstOrderReaction<MobileTrialType,ImmobileTrialType> R1sink(immobileClusters,this->cdp,ddBase.poly);
                 auto bWF_R1sink((test(iDs*mobileClustersIncrement),R1sink*(-1.0*mobileClustersIncrement))*dV); 
                 auto lWF_R1sink((test(iDs*mobileClustersIncrement),eval(R1sink*mobileClusters))*dV);
+                
+                auto lWF_R1sink2((test(mobileClustersIncrement),eval(R1sink*mobileClusters))*dV);
 
                 SecondOrderReaction<MobileTrialType> R2(mobileClusters,this->cdp);
                 auto bWF_R2((test(iDs*mobileClustersIncrement),R2*(-1.0*mobileClustersIncrement))*dV);
@@ -171,13 +173,14 @@ template struct InvDscaling<3>;
     }
 
     template<int dim>
-    void ClusterDynamicsFEM<dim>::solveImmobileClusters(const double dt,const bool hasDiscreteLoops)
+    void ClusterDynamicsFEM<dim>::updateImmobileClusters(const double dt)
     {
         std::cout<<", immobile solver, "<<std::flush;
         ImmobileSinkRate<MobileTrialType,ImmobileTrialType> immobileRate(mobileClusters,immobileClusters,this->cdp,ddBase.poly);
         auto lWFsink((test(immobileClusters),immobileRate)*dV);
-        SpatialODESolver iSolver(immobileClusters,dV,true,FLT_EPSILON);
+        SpatialODESolver iSolver(immobileClusters,dV,false,0.0001);
         // immobileClusters.dofVector()+=iSolver.solve(lWFsink.globalVector())*dt;
+
         TrialBase<ImmobileTrialType>::dofVector()+=iSolver.solve(lWFsink.globalVector()) * dt;
 
         for(size_t nodeID=0; nodeID<immobileClusters.nodeSize(); nodeID++)
@@ -187,12 +190,10 @@ template struct InvDscaling<3>;
                 // rmin = r_min * omega * N
                 // const double cmin = this->cdp.n_min(dof)*this->cdp.omega*immobileClusters.dofVector()(iSize*nodeID+dof);
                 const double cmin = this->cdp.n_min(dof)*this->cdp.omega*TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+dof);
-
                 // if(immobileClusters.dofVector()(iSize*nodeID+iSize/2+dof)<cmin) //  Nc, Na1, Na2, Na3, c, ca1, ca2, ca3
                 // { // Loop size cannot be smaller than a minimal value
                 //     immobileClusters.dofVector()(iSize*nodeID+iSize/2+dof)=cmin;
                 // }
-
                 if(TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+iSize/2+dof)<cmin) //  Nc, Na1, Na2, Na3, c, ca1, ca2, ca3
                 { // Loop size cannot be smaller than a minimal value
                     TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+iSize/2+dof)=cmin;                
@@ -201,16 +202,16 @@ template struct InvDscaling<3>;
         }
     }
 
+
     template<int dim>
-    void ClusterDynamicsFEM<dim>::solve(const double dt, const bool hasDiscreteLoops)
+    void ClusterDynamicsFEM<dim>::solve(const bool hasDiscreteLoops)
     {
         solveMobileClusters(hasDiscreteLoops);
-        
-        const bool useImmobileClusters(!hasDiscreteLoops && iSize > 0);
-        if(useImmobileClusters)
-        {
-            solveImmobileClusters(dt,hasDiscreteLoops);
-        }
+        // const bool useImmobileClusters(!hasDiscreteLoops && iSize > 0);
+        // if(useImmobileClusters)
+        // {
+        //     solveImmobileClusters(dt,hasDiscreteLoops);
+        // }
     }
 
     template<int dim>
@@ -239,6 +240,7 @@ template struct InvDscaling<3>;
             const size_t nNodes(mobileClusters.fe().nodes().size());
             mobileClusters=configIO.cdMatrix().block(0,0,nNodes,mSize).transpose().reshaped(mobileClusters.gSize(),1);
             immobileClusters=configIO.cdMatrix().block(0,mSize,nNodes,iSize).transpose().reshaped(immobileClusters.gSize(),1);
+
         }
         else
         {

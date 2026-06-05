@@ -70,11 +70,16 @@ ax.plot(dpa+0.5, b22*100, label=r'$\beta_{22}$', color='green')
 ax.plot(dpa+0.5, b33*100, label=r'$\beta_{33}$', color='blue')
 ax.plot(dpa+0.5, swelling_trace_over_3, label=r'Swelling ($\mathrm{tr}(\beta^P)/3$)', color='gray', linestyle='-')
 
+
+ax.set_xlim(0,9.2)
+ax.set_ylim(-0.08,0.06)
+
 # Experimental Data
 ax.scatter(EXPIa[:,0],EXPIa[:,1]*10**-2,color="firebrick",marker="s",s=80,label=r'Experiment: Iodide Purity');
 ax.scatter(EXPZa[:,0],EXPZa[:,1]*10**-2,color="orange",marker="s",s=80,label=r'Experiment: Zone Refined Purity');
 ax.scatter(EXPIc[:,0],EXPIc[:,1]*10**-2,color="firebrick",marker="s",s=80);
 ax.scatter(EXPZc[:,0],EXPZc[:,1]*10**-2,color="orange",marker="s",s=80);
+
 
 ax.set_xlabel('Irradiation Dose [dpa]', fontsize=textfont)
 ax.set_ylabel('Strain [%]', fontsize=textfont)
