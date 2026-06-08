@@ -152,6 +152,7 @@ namespace model
         bool solverInitialized;
 
         const Eigen::VectorXd cascadeGlobalProduction;
+        Eigen::VectorXd immobileClusterRate;
 
 //         ClusterDynamicsFEM(const DislocationDynamicsBase<dim>& ddBase_in,const ClusterDynamicsParameters<dim>& cdp_in);
 //         void solveMobileClusters();
@@ -164,6 +165,7 @@ namespace model
 
         ClusterDynamicsFEM(DislocationDynamicsBase<dim>& ddBase_in,const ClusterDynamicsParameters<dim>& cdp_in);
         void solveMobileClusters(const bool hasDiscreteLoops);
+        void solveImmobileClusters();
         void updateImmobileClusters(const double dt);
         void solve(const bool hasDiscreteLoops);
 //        void applyBoundaryConditions();

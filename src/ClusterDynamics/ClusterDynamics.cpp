@@ -169,18 +169,8 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
             applyBoundaryConditions();
 
             auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
-            const bool hasDiscreteLoops(DN->loops().size()>0? true : false);
-            const double dt(this->microstructures.getDt());
+            const bool hasDiscreteLoops(DN? (DN->loops().size()>0? true : false) : false);
             clusterDynamicsFEM->solve(hasDiscreteLoops); 
-            // clusterDynamicsFEM->solve();
-            // if constexpr (iSize > 0)
-            // {
-            //     if(cdp.discretizationTime<=this->microstructures.ddBase.simulationParameters.totalTime && !hasDiscreteLoops)
-            //     { // Insert the DislocationNetwork if Discretization is active: Check if time is past the discretization time 
-            //         std::cout << "discretization time reached, initializing discrete climb loops." << std::endl;
-            //         initializeDiscreteClimbLoops();
-            //     }
-            // }
         }
         else
         {

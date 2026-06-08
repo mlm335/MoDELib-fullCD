@@ -19,6 +19,9 @@ namespace model
         const double tolerance;
         const size_t gSize;  // Store gSize directly
 
+        double lastError;
+        int lastIterations;
+
 // #ifdef CHOLMOD_H // SuiteSparse Cholmod (LLT) module
 //         typedef Eigen::CholmodSimplicialLDLT<SparseMatrixType> DirectSolverType; //If problem with speed try this
 // #else
@@ -46,6 +49,8 @@ namespace model
         /* init */use_directSolver(use_directSolver_in)
         /* init */,tolerance(tol)
         /* init */,gSize(trial.gSize())
+        /* init */,lastError(0.0)
+        /* init */,lastIterations(0)
         {                    
             // const size_t gSize=trial.gSize();
             const auto bwfAi((test(trial),trial)*dV);
@@ -74,7 +79,10 @@ namespace model
             if(use_directSolver)
             {
                 assert(directSolver.info()==Eigen::Success && "SOLVER  FAILED");
-                return directSolver.solve(b);
+                Eigen::VectorXd x = directSolver.solve(b);
+                lastError = 0.0;
+                lastIterations = 1;
+                return x;                
             }
             else
             {
@@ -82,8 +90,21 @@ namespace model
                 // const size_t gSize=trial.gSize();
                 Eigen::VectorXd g(Eigen::VectorXd::Zero(gSize));
                 assert(iterativeSolver.info()==Eigen::Success && "SOLVER  FAILED");                
-                return iterativeSolver.solveWithGuess(b,g);
+                Eigen::VectorXd x = iterativeSolver.solveWithGuess(b,g);
+                lastError = iterativeSolver.error();
+                lastIterations = iterativeSolver.iterations();
+                return x;
             }
+        }
+        
+        double error() const
+        {
+            return lastError;
+        }
+
+        int iterations() const
+        {
+            return lastIterations;
         }
     };
 

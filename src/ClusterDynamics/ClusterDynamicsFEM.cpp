@@ -90,14 +90,15 @@ template struct InvDscaling<3>;
     /* init */,dmBWF((test(grad(iDs*mobileClustersIncrement)),-ddBase.poly.Omega*(FluxMatrix<dim>(this->cdp)*grad(mobileClustersIncrement)))*dV)   
     /* init */,mSolver(true,FLT_EPSILON)
     /* init */,solverInitialized(false)
-   /* init */,cascadeGlobalProduction(((test(iDs*this->mobileClusters),make_constant(this->cdp.G))*dV).globalVector())
+    /* init */,cascadeGlobalProduction(((test(iDs*this->mobileClusters),make_constant(this->cdp.G))*dV).globalVector())
     // /* init */,cascadeGlobalProduction(((test(this->mobileClusters),make_constant(this->cdp.G))*dV).globalVector())
 
     {
         mobileClustersIncrement.setConstant(Eigen::Matrix<double,mSize,1>::Zero());
         mobileClusters.setConstant(cdp.equilibriumMobileConcentration(0.0).matrix().transpose());
         // immobileClusters.setConstant(Eigen::Matrix<double,iSize,1>::Zero());
-        immobileClusters.setConstant(cdp.initLoopSinks);
+        immobileClusters.setConstant(cdp.initLoopSinks);    
+        immobileClusterRate = Eigen::VectorXd::Zero(immobileClusters.gSize());    
     }
 
     template<int dim>
@@ -109,7 +110,7 @@ template struct InvDscaling<3>;
 
         if(this->cdp.computeReactions)
         {
-            const double cTol(1.0e-5);
+            const double cTol(1e-5);
             double cError(1.0);
             while(cError>cTol)
             {
@@ -137,7 +138,7 @@ template struct InvDscaling<3>;
 
                 if(useImmobileClusters)
                 {
-                    rSolver.compute(dmBWF+bWF_R1+bWF_R2+bWF_R1sink); // What is .compute() doing in FixedDiricletSolver, decomposition?
+                    rSolver.compute(dmBWF+bWF_R1+bWF_R2+bWF_R1sink); 
                 }
                 else
                 {
@@ -173,27 +174,28 @@ template struct InvDscaling<3>;
     }
 
     template<int dim>
-    void ClusterDynamicsFEM<dim>::updateImmobileClusters(const double dt)
+    void ClusterDynamicsFEM<dim>::solveImmobileClusters()
     {
         std::cout<<", immobile solver, "<<std::flush;
         ImmobileSinkRate<MobileTrialType,ImmobileTrialType> immobileRate(mobileClusters,immobileClusters,this->cdp,ddBase.poly);
         auto lWFsink((test(immobileClusters),immobileRate)*dV);
-        SpatialODESolver iSolver(immobileClusters,dV,false,0.0001);
-        // immobileClusters.dofVector()+=iSolver.solve(lWFsink.globalVector())*dt;
+        SpatialODESolver iSolver(immobileClusters,dV,false,1e-4);
+        immobileClusterRate = iSolver.solve(lWFsink.globalVector());
+        std::cout<<"convergenceError="<<iSolver.error()<<std::endl;
 
-        TrialBase<ImmobileTrialType>::dofVector()+=iSolver.solve(lWFsink.globalVector()) * dt;
+    }
 
+
+    template<int dim>
+    void ClusterDynamicsFEM<dim>::updateImmobileClusters(const double dt)
+    {
+        TrialBase<ImmobileTrialType>::dofVector()+=immobileClusterRate * dt;
         for(size_t nodeID=0; nodeID<immobileClusters.nodeSize(); nodeID++)
         {
             for(int dof=0;dof<iSize/2;dof++)
             { // Corrected sink strength is to adjust for negative values at the barycenter of the quadratic elements where we have a sharp gradient of sink values between two end nodes
                 // rmin = r_min * omega * N
-                // const double cmin = this->cdp.n_min(dof)*this->cdp.omega*immobileClusters.dofVector()(iSize*nodeID+dof);
                 const double cmin = this->cdp.n_min(dof)*this->cdp.omega*TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+dof);
-                // if(immobileClusters.dofVector()(iSize*nodeID+iSize/2+dof)<cmin) //  Nc, Na1, Na2, Na3, c, ca1, ca2, ca3
-                // { // Loop size cannot be smaller than a minimal value
-                //     immobileClusters.dofVector()(iSize*nodeID+iSize/2+dof)=cmin;
-                // }
                 if(TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+iSize/2+dof)<cmin) //  Nc, Na1, Na2, Na3, c, ca1, ca2, ca3
                 { // Loop size cannot be smaller than a minimal value
                     TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+iSize/2+dof)=cmin;                
@@ -207,11 +209,11 @@ template struct InvDscaling<3>;
     void ClusterDynamicsFEM<dim>::solve(const bool hasDiscreteLoops)
     {
         solveMobileClusters(hasDiscreteLoops);
-        // const bool useImmobileClusters(!hasDiscreteLoops && iSize > 0);
-        // if(useImmobileClusters)
-        // {
-        //     solveImmobileClusters(dt,hasDiscreteLoops);
-        // }
+        const bool useImmobileClusters(!hasDiscreteLoops && iSize > 0);
+        if(useImmobileClusters)
+        {
+            solveImmobileClusters();
+        }
     }
 
     template<int dim>
@@ -232,9 +234,7 @@ template struct InvDscaling<3>;
 
     template<int dim>
     void ClusterDynamicsFEM<dim>::initializeConfiguration(const DDconfigIO<dim>& configIO,const std::ofstream& f_file,const std::ofstream& F_labels)
-    {
-        std::cout << "ceq0 = " << cdp.equilibriumMobileConcentration(0.0) << std::endl;
-    
+    {    
         if(size_t(configIO.cdMatrix().size())==mobileClusters.gSize()+immobileClusters.gSize())
         {
             const size_t nNodes(mobileClusters.fe().nodes().size());
