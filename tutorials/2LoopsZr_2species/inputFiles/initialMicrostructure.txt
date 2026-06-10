@@ -1,0 +1,2 @@
+microstructureFile=frankLoopsIndividual.txt;
+microstructureFile=frankLoopsDensity.txt;

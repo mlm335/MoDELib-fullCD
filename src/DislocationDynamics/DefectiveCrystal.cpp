@@ -58,9 +58,12 @@ namespace model
         std::cout<<"\n"<<blueBoldColor<< "runID="<<this->ddBase.simulationParameters.runID<<" (of "<<this->ddBase.simulationParameters.Nsteps<<")"
         /*                    */<< ", time="<<this->ddBase.simulationParameters.totalTime<<defaultColor<<std::endl;
         
-        this->solve();
-        this->ddBase.simulationParameters.dt=this->getDt();
-                
+        for(int kk=0; kk<1; ++kk)
+        {
+            this->solve();
+        }
+            this->ddBase.simulationParameters.dt=this->getDt();
+
         if (!(this->ddBase.simulationParameters.runID%this->ddBase.simulationParameters.outputFrequency))
         {
             DDconfigIO<dim> configIO(this->ddBase.simulationParameters.traitsIO.evlFolder);

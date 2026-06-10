@@ -426,12 +426,14 @@ namespace model
     {
 
         return msVector.abs()*exp(-(msEf-stressTrace*msVector*msRelRelaxVol*omega/3.0)/kB/T);
+        // return msVector.abs()*exp(-msEf/kB/T);
     }
 
     template<int dim>
     Eigen::Array<double,1,ClusterDynamicsParameters<dim>::mSize> ClusterDynamicsParameters<dim>::boundaryMobileConcentration(const double& stressTrace,const double& normalTraction) const
     {
         return equilibriumMobileConcentration(stressTrace)*exp(-normalTraction*msVector*omega/kB/T);
+        // return msVector.abs()*exp(-msEf/kB/T);
     }
 
     template<int dim>

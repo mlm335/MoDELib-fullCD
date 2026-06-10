@@ -176,13 +176,15 @@ template struct InvDscaling<3>;
     template<int dim>
     void ClusterDynamicsFEM<dim>::solveImmobileClusters()
     {
-        std::cout<<", immobile solver, "<<std::flush;
-        ImmobileSinkRate<MobileTrialType,ImmobileTrialType> immobileRate(mobileClusters,immobileClusters,this->cdp,ddBase.poly);
-        auto lWFsink((test(immobileClusters),immobileRate)*dV);
-        SpatialODESolver iSolver(immobileClusters,dV,false,1e-4);
-        immobileClusterRate = iSolver.solve(lWFsink.globalVector());
-        std::cout<<"convergenceError="<<iSolver.error()<<std::endl;
-
+        if (iSize > 0)
+        {
+            std::cout<<", immobile solver, "<<std::flush;
+            ImmobileSinkRate<MobileTrialType,ImmobileTrialType> immobileRate(mobileClusters,immobileClusters,this->cdp,ddBase.poly);
+            auto lWFsink((test(immobileClusters),immobileRate)*dV);
+            SpatialODESolver iSolver(immobileClusters,dV,false,1e-4);
+            immobileClusterRate = iSolver.solve(lWFsink.globalVector());
+            std::cout<<"convergenceError="<<iSolver.error()<<std::endl;
+        }
     }
 
 
