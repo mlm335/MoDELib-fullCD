@@ -31,6 +31,9 @@ EXPZc=np.array([[0.1478,-0.4282],[0.2800,-0.2267],[0.6145,-0.7909],[0.8634,-0.75
 folder = str(pathlib.Path().resolve()) # Adjust this path as needed to directory with simulation folders
 textfont = 18
 axisfont = 16
+immobile_labels = [r'$\langle c \rangle$', r'$\langle a_1 \rangle$', r'$\langle a_2 \rangle$', r'$\langle a_3 \rangle$']
+mobile_labels = [r'$C_v$', r'$C_i$', r'$C_{2i}$', r'$C_{3i}$']
+mobile_columns = ['CD_Cv [-]', 'CD_Ci [-]', 'CD_C2i [-]', 'CD_C3i [-]']
 
 # ------------------------------------------------------------------------ #
 #                          Main Processing Loop
@@ -105,14 +108,72 @@ ax2.set_xlim(left=0)
 ax2.tick_params(axis='both', which='major', direction='in', length=6, labelsize=axisfont)
 fig2.tight_layout()
 
+has_immobile_cd = all(label in Flabels for label in [f'CD_N_{i} [m^-3]' for i in range(4)] + [f'CD_c_{i} [-]' for i in range(4)])
+has_mobile_cd = all(label in Flabels for label in mobile_columns)
+fig3 = None
+if has_immobile_cd:
+    immobile_N = [getFarray(F, Flabels, f'CD_N_{i} [m^-3]') for i in range(4)]
+    immobile_c = [getFarray(F, Flabels, f'CD_c_{i} [-]') for i in range(4)]
+
+    fig3, (ax3a, ax3b) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    colors = ['tab:purple', 'tab:red', 'tab:green', 'tab:blue']
+    for k, label in enumerate(immobile_labels):
+        ax3a.plot(dpa, immobile_N[k], label=label, color=colors[k], linewidth=2)
+        ax3b.plot(dpa, immobile_c[k], label=label, color=colors[k], linewidth=2)
+
+    ax3a.set_ylabel('Number Density [m$^{-3}$]', fontsize=textfont)
+    ax3a.set_yscale('log')
+    ax3a.legend(fontsize=axisfont, ncol=2)
+    ax3a.grid(True, linestyle=':')
+    ax3a.tick_params(axis='both', which='major', direction='in', length=6, labelsize=axisfont)
+
+    ax3b.set_xlabel('Irradiation Dose [dpa]', fontsize=textfont)
+    ax3b.set_ylabel('Defect Concentration [-]', fontsize=textfont)
+    ax3b.grid(True, linestyle=':')
+    ax3b.set_xlim(left=0)
+    ax3b.tick_params(axis='both', which='major', direction='in', length=6, labelsize=axisfont)
+    fig3.tight_layout()
+else:
+    print("Skipping immobile cluster plot: CD_N_* and CD_c_* columns were not found in F_labels.txt")
+
+fig4 = None
+if has_mobile_cd:
+    mobile_c = [getFarray(F, Flabels, label) for label in mobile_columns]
+    fig4, ax4 = plt.subplots(figsize=(10, 6))
+    colors = ['tab:gray', 'tab:red', 'tab:green', 'tab:blue']
+    for k, label in enumerate(mobile_labels):
+        ax4.plot(dpa, mobile_c[k], label=label, color=colors[k], linewidth=2)
+
+    ax4.set_xlabel('Irradiation Dose [dpa]', fontsize=textfont)
+    ax4.set_ylabel('Mobile Defect Concentration [-]', fontsize=textfont)
+    ax4.set_yscale('log')
+    ax4.legend(fontsize=axisfont, ncol=2)
+    ax4.grid(True, linestyle=':')
+    ax4.set_xlim(left=0)
+    ax4.tick_params(axis='both', which='major', direction='in', length=6, labelsize=axisfont)
+    fig4.tight_layout()
+else:
+    print("Skipping mobile concentration plot: CD_Cv, CD_Ci, CD_C2i, and CD_C3i columns were not found in F_labels.txt")
+
 plt.show()
 # Save figures
 save_path = os.path.join(folder, 'StrainComponentsWithSwelling.pdf')
 fig.savefig(save_path)
 save_path2 = os.path.join(folder, 'DislocationDensities_vs_DPA.pdf')
 fig2.savefig(save_path2)   
+save_path3 = os.path.join(folder, 'ImmobileClusterDensityConcentration_vs_DPA.pdf')
+if fig3 is not None:
+    fig3.savefig(save_path3)
+save_path4 = os.path.join(folder, 'MobileConcentrations_vs_DPA.pdf')
+if fig4 is not None:
+    fig4.savefig(save_path4)
 plt.close(fig)
 print(f"Saved {save_path}")
 plt.close(fig2)
 print(f"Saved {save_path2}")
-
+if fig3 is not None:
+    plt.close(fig3)
+    print(f"Saved {save_path3}")
+if fig4 is not None:
+    plt.close(fig4)
+    print(f"Saved {save_path4}")

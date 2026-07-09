@@ -1,0 +1,9 @@
+type= FrankLoops;
+style=density;
+targetDensity=0e11; # [m^-2] dislocation density
+radiusDistributionMean_SI=1e-07; [m] mean of loop radii
+radiusDistributionStd_SI=0e-8; [m] std of loop radii
+numberOfSides=20; [-] number of sides in each loop polygon
+areVacancyLoops=1; # 1=vacancy-type loops, 0=interstiatial-type loops
+allowedGrainIDs=-1; # set of grain IDs where loops are allowed. Use -1 for all grains
+allowedPlaneIDs=0; # set of plane IDs containing the loops. Use -1 for random plane

@@ -8,7 +8,7 @@ useInclusions=0;
 useClusterDynamics=1;
 useClusterDynamicsFEM=1;
 useCracks=0;
-Nsteps=25;		# total number of simulation steps
+Nsteps=120;		# total number of simulation steps
 startAtTimeStep = -1;  # time step for restart. -1 means last available step in file F/F_0.txt
 
 ######################################
@@ -18,6 +18,7 @@ use_directSolver_FEM=1; # direct vs iterative solver
 solverTolerance=1.0e-7; # tolerance for iterative solver
 # Surface nucleation model (0=no nucleation)
 surfaceNucleationModel=0;
+bulkNucleationModel=0;
 
 ######################################
 # Settings for periodic simulations ()
@@ -32,7 +33,7 @@ inertiaReliefPenaltyFactor=1e-3;
 ######################################
 # TIME STEPPING
 timeSteppingMethod=fixed; # can be "fixed" or "fixed". dt=dtMax if timeIntegrationMethod=fixed. dt=min(dxMax/vMax,dtMax) if timeIntegrationMethod=fixed
-dtMax=3.47935e19; # max DD time step 
+dtMax=3.4e19; # max DD time step 
 dxMax=5; # max nodal displacement in adaptive stepping
 use_velocityFilter=0;
 velocityReductionFactor=0.75;
@@ -46,14 +47,13 @@ subcyclingBins=1 2 5 10 50 100;
 glideSolverType=none; # type of glide solver (none or pybind11 or none)
 pyModuleName=../../../../../python/MLglideSolver.py; # relative path to Python module
 
-
 ######################################
 # CLIMB
 climbSolverType=Galerkin; # type of glide solver (Galerkin or none)
 glideEquilibriumRate=1e-12; # climb rate threshold below which climb steps are taken
-solverType=0;
-solverTol=1e-4;
-relativeInteractionThreshold=10;
+solverType=1; # 0:Lumped, 1:Full Solver with loop-based sparsification
+solverTol=1e-4; # Full iterative solver tolerance
+relativeInteractionThreshold=3; # Maximum distance-to-loop-size ratio for retaining an interaction.
 
 ######################################
 # DISLOCATION ELASTIC FIELDS
@@ -82,14 +82,10 @@ crossSlipAngle_deg=2.0; # [deg] angle between tangent and Burgers vector, below 
 # GRAIN-BOUNDARY MODEL
 grainBoundaryTransmissionModel=0;
 
-bulkNucleationModel=0;
-nodalVelocityConstraints=0 0 0;
-
 ######################################
 # OUTPUT
 # Options for output files:
 outputFrequency=1;
-outputDislocationDensityPerSlipSystem=0;
 outputBinary=0;
 computeElasticEnergyPerLength=0;
 outputMeshDisplacement=0;
@@ -98,10 +94,12 @@ outputQuadraturePoints=1;
 outputLinkingNumbers=0;
 outputLoopLength=0;
 outputPlasticDistortionPerSlipSystem=0;
+outputDislocationDensityPerSlipSystem=0;
 
 #####################################
 # DEBUGGING
 computeDDinteractions=1;
+nodalVelocityConstraints=; # prohibited directions in each row
 verboseLoopNetwork=0;
 verboseDislocationNetwork=0;
 verboseDislocationLoop=0;
