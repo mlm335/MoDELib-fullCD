@@ -77,6 +77,7 @@ namespace model
         const bool useClusterDynamicsFEM;
         const std::unique_ptr<ClusterDynamicsFEM<dim>> clusterDynamicsFEM;
         UniformControllerContainerType uniformControllers;
+        double currentClusterDynamicsDt;
 
         
 //        const int nodeListInternalExternal;
@@ -121,4 +122,3 @@ namespace model
     
 }
 #endif
-

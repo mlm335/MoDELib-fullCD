@@ -14,11 +14,11 @@
 #ifndef model_ClusterDynamicsParameters_cpp_
 #define model_ClusterDynamicsParameters_cpp_
 
+#include <algorithm>
 #include <ClusterDynamicsParameters.h>
 
 namespace model
 {
-
     template<int dim>
     ClusterDynamicsParameters<dim>::ClusterDynamicsParameters(const DislocationDynamicsBase<dim>& ddBase) :
     /* init */ kB(ddBase.poly.kB),
@@ -42,10 +42,22 @@ namespace model
     /* init */ otherSinks(ddBase.simulationParameters.useClusterDynamics? (TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,mSize>("otherSinks_SI",true)*ddBase.poly.b_SI*ddBase.poly.b_SI).eval() : Eigen::Array<double,1,mSize>::Zero()),
     /* init */ dislocationSinks(TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("dislocationSinks_SI",true)*ddBase.poly.b_SI*ddBase.poly.b_SI),
     /* init */ initLoopSinks(getInitLoopSinks(TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize>("initLoopSinks_SI",true),ddBase.poly.b_SI)),
+    /* init */ loopContentTauInv((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? (Eigen::Array<double,1,iSize/2>::Constant(ddBase.poly.b_SI/ddBase.poly.cs_SI) / TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopContentTau_SI",true).array()).eval() : Eigen::Array<double,1,iSize/2>::Zero().eval()),
+    /* init */ loopCascadeRate((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? (G0/omega*TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopCascadeFraction",true).array()).eval() : Eigen::Array<double,1,iSize/2>::Zero().eval()),
+    /* init */ loopNucDefects((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopNucDefects",true).array().max(1.0e-300).eval() : Eigen::Array<double,1,iSize/2>::Ones().eval()),
+    /* init */ loopAnnealTauInv((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? ((ddBase.poly.b_SI/ddBase.poly.cs_SI)/(TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopAnnealTau0_SI",true).array()*(TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopAnnealEa_eV",true).array()/(8.617333e-5*ddBase.poly.T)).exp())).eval() : Eigen::Array<double,1,iSize/2>::Zero().eval()),
+    /* init */ loopCoalLL((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopCoalLL",true).array().eval() : Eigen::Array<double,1,iSize/2>::Zero()),
+    /* init */ loopCoalLN((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopCoalLN",true).array().eval() : Eigen::Array<double,1,iSize/2>::Zero()),
+    /* init */ loopCoalKappaLL((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readScalar<double>("loopCoalKappaLL",true) : 1.0),
+    /* init */ loopCoalKappaLN((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readScalar<double>("loopCoalKappaLN",true) : 1.0),
+    /* init */ loopCoalNetwork((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readScalar<double>("loopCoalNetwork_SI",true)*ddBase.poly.b_SI*ddBase.poly.b_SI : 0.0),
+    /* init */ loopClusterFraction((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readMatrix<double,1,iSize/2>("loopClusterFraction",true).array().eval() : Eigen::Array<double,1,iSize/2>::Zero()),
+    /* init */ loopClusterNucDefects((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? std::max(1.0e-300,TextFileParser(ddBase.poly.materialFile).readScalar<double>("loopClusterNucDefects",true)) : 4.0),
     /* init */ reactionMap((ddBase.simulationParameters.useClusterDynamics && mSize>1) ? getMap(TextFileParser(ddBase.poly.materialFile).readMatrix<double,mSize*(mSize+1)/2,3>("reactionPrefactorMap",true)) : std::map<std::pair<int,int>,double>()),
     /* init */ R1(mSize>1 ? getR1() : Eigen::Matrix<double,mSize,mSize>::Zero()),
     /* init */ R1cd(iSize>0 ? msVector.abs().matrix().asDiagonal()*R1*(1.0/msVector.abs()).matrix().asDiagonal() : Eigen::Matrix<double,mSize,mSize>::Zero().eval()),
     /* init */ R2(mSize>1 ? getR2() : std::vector<Eigen::Matrix<double,mSize,mSize>>(2,Eigen::Matrix<double,mSize,mSize>::Zero())),
+    /* init */ R2sum(mSize>1 ? getR2sum() : Eigen::Matrix<double,mSize,mSize>::Zero().eval()),
     /* init */ discreteDislocationBias(ddBase.simulationParameters.useClusterDynamics? TextFileParser(ddBase.poly.materialFile).readMatrix<double,2,mSize>("discreteDislocationBias",true).eval() : Eigen::Array<double,2,mSize>::Zero()),
     /* IMMOBILE SPECIES */
     /* init */ immobileSpeciesVector((ddBase.simulationParameters.useClusterDynamics && iSize>0) ? TextFileParser(ddBase.poly.materialFile).readMatrix<int>("immobileSpeciesVector",1,iSize/2,true).array().template cast<double>() : Eigen::Array<double,1,iSize/2>::Zero().eval()),
@@ -131,6 +143,58 @@ namespace model
             tempMap.insert(std::pair<std::pair<int,int>,double>(key,matrix_in(k,2)));
         }
         return tempMap;
+    }
+
+    template<int dim>
+    int ClusterDynamicsParameters<dim>::mobileSpeciesIndex(const int& species) const
+    {
+        for(int k=0;k<mSize;++k)
+        {
+            if(std::abs(msVector(k)-species)<FLT_EPSILON)
+            {
+                return k;
+            }
+        }
+        return -1;
+    }
+
+    template<int dim>
+    double ClusterDynamicsParameters<dim>::mobileReactionRate(const int& species0,const int& species1) const
+    {
+        const int k0(mobileSpeciesIndex(species0));
+        const int k1(mobileSpeciesIndex(species1));
+        if(k0<0 || k1<0)
+        {
+            return 0.0;
+        }
+
+        const std::pair<int,int> key(std::minmax(k0,k1));
+        const auto iter(reactionMap.find(key));
+        if(iter==reactionMap.end())
+        {
+            return 0.0;
+        }
+
+        Eigen::Array<double,1,mSize> aveD(Eigen::Array<double,1,mSize>::Zero());
+        for(int k=0;k<mSize;k++)
+        {
+            aveD(k)=pow(detD.begin()->second(k),1.0/3.0);
+        }
+
+        Eigen::Array<double,1,mSize> rn(Eigen::Array<double,1,mSize>::Zero());
+        for(int k=0;k<mSize;k++)
+        {
+            if(fabs(msVector(k)-1)<FLT_EPSILON || fabs(msVector(k)+1)<FLT_EPSILON)
+            {
+                rn(k)=pow(3.0*this->omega/4.0/M_PI,1.0/3.0);
+            }
+            else
+            {
+                rn(k)=pow(fabs(msVector(k)*this->omega/this->b/M_PI),1.0/2.0);
+            }
+        }
+
+        return iter->second*4.0*M_PI*(rn(k0)+rn(k1))*(aveD(k0)+aveD(k1))/omega;
     }
 
     template<int dim>
@@ -309,6 +373,17 @@ namespace model
     }
 
     template<int dim>
+    Eigen::Matrix<double,ClusterDynamicsParameters<dim>::mSize,ClusterDynamicsParameters<dim>::mSize> ClusterDynamicsParameters<dim>::getR2sum() const
+    {
+        Eigen::Matrix<double,mSize,mSize> temp(Eigen::Matrix<double,mSize,mSize>::Zero());
+        for(int k=0;k<mSize;k++)
+        {
+            temp += R2[k]*msVector(k);
+        }
+        return temp;
+    }
+
+    template<int dim>
     Eigen::Array<double,1,ClusterDynamicsParameters<dim>::iSize/2> ClusterDynamicsParameters<dim>::getImmobileSpeciesBurgersMagnitude(const GrainContainerType& grains) const
     {
         Eigen::Array<double,1,iSize/2> temp(Eigen::Array<double,1,iSize/2>::Zero());
@@ -484,7 +559,14 @@ namespace model
     template<int dim>
     Eigen::Array<double,1,ClusterDynamicsParameters<dim>::iSize/2> ClusterDynamicsParameters<dim>::sigmoidalVectorInterpolation(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N, const Eigen::Array<double,1,iSize/2>& lowValue, const Eigen::Array<double,1,iSize/2>& highValue) const
     {
-        const Eigen::Array<double,1,iSize/2> n = CI/N/omega;
+        Eigen::Array<double,1,iSize/2> n(Eigen::Array<double,1,iSize/2>::Zero());
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>0.0)
+            {
+                n(k)=CI(k)/N(k)/omega;
+            }
+        }
         
         return highValue*sigmoid(n) + lowValue*(1.0 - sigmoid(n));
     }
@@ -492,25 +574,77 @@ namespace model
     template<int dim>
     Eigen::Array<double,1,ClusterDynamicsParameters<dim>::iSize/2> ClusterDynamicsParameters<dim>::clusterRadius(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N) const
     {
-        const Eigen::Array<double,1,iSize/2> n = CI/N/omega;
-        
-        return sigmoidalVectorInterpolation(CI,N,rpyr(n),rloop(n));
+        Eigen::Array<double,1,iSize/2> n(Eigen::Array<double,1,iSize/2>::Zero());
+        Eigen::Array<double,1,iSize/2> temp(Eigen::Array<double,1,iSize/2>::Zero());
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>0.0)
+            {
+                n(k)=CI(k)/N(k)/omega;
+            }
+        }
+
+        const Eigen::Array<double,1,iSize/2> interpolated(sigmoidalVectorInterpolation(CI,N,rpyr(n),rloop(n)));
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>0.0)
+            {
+                temp(k)=interpolated(k);
+            }
+        }
+        return temp;
+    }
+
+    template<int dim>
+    Eigen::Array<double,1,ClusterDynamicsParameters<dim>::iSize/2> ClusterDynamicsParameters<dim>::clusterVolume(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N) const
+    {
+        Eigen::Array<double,1,iSize/2> n(Eigen::Array<double,1,iSize/2>::Ones()*loopClusterNucDefects);
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>=0.0)
+            {
+                n(k)=CI(k)/N(k);
+            }
+        }
+        return n;
     }
 
     template<int dim>
     Eigen::Array<double,1,ClusterDynamicsParameters<dim>::iSize/2> ClusterDynamicsParameters<dim>::clusterDensity(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N) const
     {
-        const Eigen::Array<double,1,iSize/2> n = CI/N/omega;
+        Eigen::Array<double,1,iSize/2> n(Eigen::Array<double,1,iSize/2>::Zero());
+        Eigen::Array<double,1,iSize/2> temp(Eigen::Array<double,1,iSize/2>::Zero());
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>0.0)
+            {
+                n(k)=CI(k)/N(k)/omega;
+            }
+        }
         const Eigen::Array<double,1,iSize/2> LoopS = 2.0*M_PI*rloop(n)*N;
         const Eigen::Array<double,1,iSize/2> PyrS = a_bp*4.0*M_PI*rpyr(n)*N;
-        
-        return sigmoidalVectorInterpolation(CI,N,PyrS,LoopS);
+        const Eigen::Array<double,1,iSize/2> interpolated(sigmoidalVectorInterpolation(CI,N,PyrS,LoopS));
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>0.0)
+            {
+                temp(k)=interpolated(k);
+            }
+        }
+        return temp;
     }
 
     template<int dim>
     Eigen::Array<double,dim,dim> ClusterDynamicsParameters<dim>::sigmoidalMatrixInterpolation(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N, const Eigen::Array<double,dim,dim>& lowValue, const Eigen::Array<double,dim,dim>& highValue, const int& index) const
     {
-        const Eigen::Array<double,1,iSize/2> n = CI/N/omega;
+        Eigen::Array<double,1,iSize/2> n(Eigen::Array<double,1,iSize/2>::Zero());
+        for(int k=0;k<iSize/2;++k)
+        {
+            if(N(k)>0.0 && CI(k)>0.0)
+            {
+                n(k)=CI(k)/N(k)/omega;
+            }
+        }
         
         return highValue*sigmoid(n)(index) + lowValue*(1.0 - sigmoid(n)(index));
     }

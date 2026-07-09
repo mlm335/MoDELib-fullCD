@@ -166,6 +166,59 @@ namespace model
                 }
             }
         }
+
+        template<typename TrialFunctionType>
+        void compute(const SparseMatrixType& A_in)
+        {
+            dirichletConditions=&TrialBase<TrialFunctionType>::dirichletConditions();
+            dofVector=&TrialBase<TrialFunctionType>::dofVector();
+            gSize=TrialBase<TrialFunctionType>::gSize();
+            cSize=dirichletConditions->size();
+            tSize = gSize-cSize;
+
+            A=A_in;
+
+            std::vector<Eigen::Triplet<double> > tTriplets;
+            tTriplets.reserve(tSize);
+            size_t startRow=0;
+            size_t col=0;
+            for (const auto& cIter : *dirichletConditions)
+            {
+                const size_t& endRow = cIter.first;
+                for (size_t row=startRow;row!=endRow;++row)
+                {
+                    tTriplets.emplace_back(row,col,1.0);
+                    col++;
+                }
+                startRow=endRow+1;
+            }
+            for (size_t row=startRow;row!=gSize;++row)
+            {
+                tTriplets.emplace_back(row,col,1.0);
+                col++;
+            }
+            T.resize(gSize,tSize);
+            T.setFromTriplets(tTriplets.begin(),tTriplets.end());
+
+            A1=T.transpose()*A*T;
+
+            if(use_directSolver)
+            {
+                directSolver.compute(A1);
+                if(directSolver.info()!=Eigen::Success)
+                {
+                    throw std::runtime_error("FixedDirichletSolver failed.");
+                }
+            }
+            else
+            {
+                iterativeSolver.compute(A1);
+                if(iterativeSolver.info()!=Eigen::Success)
+                {
+                    throw std::runtime_error("FixedDirichletSolver failed.");
+                }
+            }
+        }
     };
 
 }

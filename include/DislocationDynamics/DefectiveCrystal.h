@@ -44,6 +44,7 @@ namespace model
         void initializeConfiguration(const DDconfigIO<dim>& configIO);
         void runSteps();
         void runSingleStep();
+        void writeCurrentState();
         
         const DislocationNetwork<_dim>& dislocationNetwork() const;
         

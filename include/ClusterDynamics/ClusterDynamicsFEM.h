@@ -166,6 +166,8 @@ namespace model
         ClusterDynamicsFEM(DislocationDynamicsBase<dim>& ddBase_in,const ClusterDynamicsParameters<dim>& cdp_in);
         void solveMobileClusters(const bool hasDiscreteLoops);
         void solveImmobileClusters();
+        void clampImmobileDofVector(Eigen::VectorXd& x) const;
+        void applyImmobilePopulationCorrections(Eigen::VectorXd& x,const double dt) const;
         void updateImmobileClusters(const double dt);
         void solve(const bool hasDiscreteLoops);
 //        void applyBoundaryConditions();
@@ -186,4 +188,3 @@ namespace model
     
 }
 #endif
-

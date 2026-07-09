@@ -12,6 +12,8 @@
 #include <omp.h>
 #endif
 
+#include <algorithm>
+#include <cmath>
 #include <ClusterDynamics.h>
 //#include <ExternalAndInternalBoundary.h>
 //#include <Fix.h>
@@ -93,6 +95,7 @@ typename ClusterDynamics<dim>::UniformControllerContainerType ClusterDynamics<di
 //    /* init */,useClusterDynamicsFEM(bool(TextFileParser(this->microstructures.ddBase.simulationParameters.traitsIO.ddFile).readScalar<int>("useClusterDynamicsFEM",true)))
     /* init */,clusterDynamicsFEM(useClusterDynamicsFEM?  new ClusterDynamicsFEM<dim>(this->microstructures.ddBase,cdp) : nullptr)
     /* init */,uniformControllers(useClusterDynamicsFEM? UniformControllerContainerType() : getUniformControllers(this->microstructures.ddBase,this->cdp))
+    /* init */,currentClusterDynamicsDt(this->microstructures.ddBase.simulationParameters.dtMax)
 //    /* init */,nodeListInternalExternal(this->microstructures.ddBase.isPeriodicDomain ? -1 : this->microstructures.ddBase.fe->template createNodeList<ExternalAndInternalBoundary>())
 //    /* init */,mobileClustersIncrement(this->microstructures.ddBase.fe->template trial<'d',mSize>())
 //    /* init */,dV(this->microstructures.ddBase.fe->template domain<EntireDomain,dVorder,GaussLegendre>())
@@ -170,7 +173,8 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
 
             auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
             const bool hasDiscreteLoops(DN? (DN->loops().size()>0? true : false) : false);
-            clusterDynamicsFEM->solve(hasDiscreteLoops); 
+            currentClusterDynamicsDt=this->microstructures.ddBase.simulationParameters.dtMax;
+            clusterDynamicsFEM->solve(hasDiscreteLoops);
         }
         else
         {
@@ -184,7 +188,7 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
         if(clusterDynamicsFEM)
         {
             auto DN(this->microstructures.template getUniqueTypedMicrostructure<DislocationNetwork<dim>>());
-            const bool hasDiscreteLoops(DN->loops().size()>0 ? true : false);
+            const bool hasDiscreteLoops(DN? (DN->loops().size()>0 ? true : false) : false);
             const double dt(this->microstructures.getDt());
 
             if constexpr (iSize > 0)
@@ -207,7 +211,7 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
     template<int dim>
     double ClusterDynamics<dim>::getDt() const
     {
-        return this->microstructures.ddBase.simulationParameters.dtMax;
+        return currentClusterDynamicsDt;
     }
 
     template<int dim>
@@ -219,6 +223,89 @@ void ClusterDynamics<dim>::applyBoundaryConditions()
             configIO.cdMatrix().resize(nNodes,mSize+iSize);
             configIO.cdMatrix().block(0,0,nNodes,mSize)=clusterDynamicsFEM->mobileClusters.dofVector().reshaped(mSize,nNodes).transpose();
             configIO.cdMatrix().block(0,mSize,nNodes,iSize)=clusterDynamicsFEM->immobileClusters.dofVector().reshaped(iSize,nNodes).transpose();
+
+            Eigen::Matrix<double,mSize,1> averageMobile(Eigen::Matrix<double,mSize,1>::Zero());
+            double volume(0.0);
+            const Eigen::Matrix<double,dim+1,1> bary(Eigen::Matrix<double,dim+1,1>::Constant(1.0/(dim+1)));
+            for(const auto& ele : this->microstructures.ddBase.fe->elements())
+            {
+                averageMobile+=eval(clusterDynamicsFEM->mobileClusters)(ele.second,bary)*ele.second.simplex.vol0;
+                volume+=ele.second.simplex.vol0;
+            }
+            averageMobile/=volume;
+
+            for(int k=0;k<mSize;++k)
+            {
+                f_file<<averageMobile(k)<<" ";
+            }
+
+            if(this->microstructures.ddBase.simulationParameters.runID==0)
+            {
+                for(int k=0;k<mSize;++k)
+                {
+                    const int species(static_cast<int>(std::round(cdp.msVector(k))));
+                    F_labels<<"CD_C";
+                    if(species<0)
+                    {
+                        if(std::abs(species)>1)
+                        {
+                            F_labels<<std::abs(species);
+                        }
+                        F_labels<<"v";
+                    }
+                    else
+                    {
+                        if(species>1)
+                        {
+                            F_labels<<species;
+                        }
+                        F_labels<<"i";
+                    }
+                    F_labels<<" [-]\n";
+                }
+            }
+
+            if constexpr (iSize>0)
+            {
+                Eigen::Matrix<double,iSize,1> averageImmobile(Eigen::Matrix<double,iSize,1>::Zero());
+                for(const auto& ele : this->microstructures.ddBase.fe->elements())
+                {
+                    Eigen::Matrix<double,iSize,1> correctedImmobile(eval(clusterDynamicsFEM->immobileClusters)(ele.second,bary));
+                    for(int dof=0;dof<iSize/2;++dof)
+                    {
+                        correctedImmobile(dof)=std::max(0.0,correctedImmobile(dof));
+                        const double cmin(cdp.n_min(dof)*cdp.omega*correctedImmobile(dof));
+                        if(correctedImmobile(iSize/2+dof)<cmin)
+                        {
+                            correctedImmobile(iSize/2+dof)=cmin;
+                        }
+                    }
+                    averageImmobile+=correctedImmobile*ele.second.simplex.vol0;
+                }
+                averageImmobile/=volume;
+                const double densityScale(1.0/std::pow(this->microstructures.ddBase.poly.b_SI,3));
+
+                for(int k=0;k<iSize/2;++k)
+                {
+                    f_file<<averageImmobile(k)*densityScale<<" ";
+                }
+                for(int k=0;k<iSize/2;++k)
+                {
+                    f_file<<averageImmobile(iSize/2+k)<<" ";
+                }
+
+                if(this->microstructures.ddBase.simulationParameters.runID==0)
+                {
+                    for(int k=0;k<iSize/2;++k)
+                    {
+                        F_labels<<"CD_N_"<<k<<" [m^-3]\n";
+                    }
+                    for(int k=0;k<iSize/2;++k)
+                    {
+                        F_labels<<"CD_c_"<<k<<" [-]\n";
+                    }
+                }
+            }
         }
         else
         {

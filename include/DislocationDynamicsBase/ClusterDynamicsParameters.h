@@ -29,8 +29,8 @@ namespace model
 template<int dim>
 struct ClusterDynamicsParameters
 {
-    static constexpr int mSize=1;     // e.g. Cv, Ci, C2i, C3i
-    static constexpr int iSize=0;  // e.g. Nc, Na1, Na2, Na3, cv, ca1, ca2, ca3
+    static constexpr int mSize=4;     // e.g. Cv, Ci, C2i, C3i
+    static constexpr int iSize=8;  // e.g. Nc, Na1, Na2, Na3, cv, ca1, ca2, ca3
 
     typedef Eigen::Matrix<double,dim,1> VectorDim;
     typedef Eigen::Matrix<double,dim,dim> MatrixDim;
@@ -63,11 +63,23 @@ struct ClusterDynamicsParameters
     const Eigen::Array<double,1,mSize> otherSinks;
     const Eigen::Array<double,1,iSize/2> dislocationSinks;
     const Eigen::Array<double,1,iSize> initLoopSinks;
+    const Eigen::Array<double,1,iSize/2> loopContentTauInv;
+    const Eigen::Array<double,1,iSize/2> loopCascadeRate;
+    const Eigen::Array<double,1,iSize/2> loopNucDefects;
+    const Eigen::Array<double,1,iSize/2> loopAnnealTauInv;
+    const Eigen::Array<double,1,iSize/2> loopCoalLL;
+    const Eigen::Array<double,1,iSize/2> loopCoalLN;
+    const double loopCoalKappaLL;
+    const double loopCoalKappaLN;
+    const double loopCoalNetwork;
+    const Eigen::Array<double,1,iSize/2> loopClusterFraction;
+    const double loopClusterNucDefects;
     const std::map<std::pair<int,int>,double> reactionMap;
     const Eigen::Matrix<double,mSize,mSize> R1;
     const Eigen::Matrix<double,mSize,mSize> R1cd;
     // Second-order reaction
     const std::vector<Eigen::Matrix<double,mSize,mSize>> R2;
+    const Eigen::Matrix<double,mSize,mSize> R2sum;
 
     // Bias factors
     const Eigen::Array<double,2,mSize> discreteDislocationBias;
@@ -85,13 +97,6 @@ struct ClusterDynamicsParameters
     const Eigen::Array<double,1,iSize/2> nmin; // Critical size for <c> pyramid -> loop
     const Eigen::Array<double,1,iSize/2> nmax;
     const Eigen::Array<double,1,iSize/2> n_min; // minimal loop sizes
-
-    // Irradiation Production
-    // const double evc; // Vacancy cluster generation efficiency
-    // const double Nvmax; // Satuatrion number density for vacancy loops in m^-3
-    // const Eigen::Array<double,1,iSize/2> nmin; // Critical size for <c> pyramid -> loop
-    // const Eigen::Array<double,1,iSize/2> nmax;
-    // const Eigen::Array<double,1,iSize/2> r_min; // minimal loop sizes
 
     // Reaction map (types: parameters)
     const bool computeReactions;
@@ -116,6 +121,9 @@ struct ClusterDynamicsParameters
     std::map<std::pair<int,int>,double> getMap(const Eigen::Array<double,mSize*(mSize+1)/2,3> matrix_in) const;
     Eigen::Matrix<double,mSize,mSize> getR1() const;
     std::vector<Eigen::Matrix<double,mSize,mSize>> getR2() const;
+    Eigen::Matrix<double,mSize,mSize> getR2sum() const;
+    int mobileSpeciesIndex(const int& species) const;
+    double mobileReactionRate(const int& species0,const int& species1) const;
     Eigen::Array<double,1,iSize/2> getImmobileSpeciesBurgersMagnitude(const GrainContainerType& grains) const;
     std::map<size_t,std::vector<Eigen::Matrix<double,dim,dim>>> getD(const GrainContainerType& grains) const;
     std::vector<Eigen::Matrix<double,dim,dim>> getDlocal() const;
@@ -130,6 +138,7 @@ struct ClusterDynamicsParameters
     Eigen::Array<double,1,iSize/2> rloop(const Eigen::Array<double,1,iSize/2>& n) const;
     Eigen::Array<double,1,iSize/2> sigmoidalVectorInterpolation(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N, const Eigen::Array<double,1,iSize/2>& lowValue, const Eigen::Array<double,1,iSize/2>& highValue) const;
     Eigen::Array<double,1,iSize/2> clusterRadius(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N) const;
+    Eigen::Array<double,1,iSize/2> clusterVolume(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N) const;
     Eigen::Array<double,1,iSize/2> clusterDensity(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N) const;
     Eigen::Array<double,dim,dim> sigmoidalMatrixInterpolation(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N, const Eigen::Array<double,dim,dim>& lowValue, const Eigen::Array<double,dim,dim>& highValue, const int& index) const;
     Eigen::Array<double,1,iSize/2> sigmoidalPlotVectorInterpolation(const Eigen::Array<double,1,iSize/2>& CI, const Eigen::Array<double,1,iSize/2>& N, const Eigen::Array<double,1,iSize/2>& lowValue, const Eigen::Array<double,1,iSize/2>& highValue) const;

@@ -53,6 +53,62 @@ namespace model
     }
 
     template <int _dim>
+    void DefectiveCrystal<_dim>::writeCurrentState()
+    {
+        DDconfigIO<dim> configIO(this->ddBase.simulationParameters.traitsIO.evlFolder);
+        DDauxIO<dim> auxIO(this->ddBase.simulationParameters.traitsIO.auxFolder);
+
+        f_file<< this->ddBase.simulationParameters.runID<<" "<<std::setprecision(15)<<std::scientific<<this->ddBase.simulationParameters.totalTime<<" "<<this->ddBase.simulationParameters.dt<<" ";
+
+        const Eigen::Matrix<double,dim,dim> pD(this->averagePlasticDistortion());
+        f_file<<pD.row(0)<<" "<<pD.row(1)<<" "<<pD.row(2)<<" "<<pD.trace()<<" "<<pD.norm()<<" ";
+
+        const Eigen::Matrix<double,dim,dim> pDR(this->averagePlasticDistortionRate());
+        f_file<<pDR.row(0)<<" "<<pDR.row(1)<<" "<<pDR.row(2)<<" "<<pDR.trace()<<" "<<pDR.norm()<<" ";
+
+        if(this->ddBase.simulationParameters.runID==0)
+        {
+            F_labels<<"runID\n";
+            F_labels<<"time [b/cs]\n";
+            F_labels<<"dt [b/cs]\n";
+
+            F_labels<<"betaP_11\n";
+            F_labels<<"betaP_12\n";
+            F_labels<<"betaP_13\n";
+            F_labels<<"betaP_21\n";
+            F_labels<<"betaP_22\n";
+            F_labels<<"betaP_23\n";
+            F_labels<<"betaP_31\n";
+            F_labels<<"betaP_32\n";
+            F_labels<<"betaP_33\n";
+            F_labels<<"tr(betaP)\n";
+            F_labels<<"norm(betaP)\n";
+
+            F_labels<<"dotBetaP_11 [cs/b]\n";
+            F_labels<<"dotBetaP_12 [cs/b]\n";
+            F_labels<<"dotBetaP_13 [cs/b]\n";
+            F_labels<<"dotBetaP_21 [cs/b]\n";
+            F_labels<<"dotBetaP_22 [cs/b]\n";
+            F_labels<<"dotBetaP_23 [cs/b]\n";
+            F_labels<<"dotBetaP_31 [cs/b]\n";
+            F_labels<<"dotBetaP_32 [cs/b]\n";
+            F_labels<<"dotBetaP_33 [cs/b]\n";
+            F_labels<<"tr(dotBetaP) [cs/b]\n";
+            F_labels<<"norm(dotBetaP) [cs/b]\n";
+        }
+
+        this->output(configIO,auxIO,f_file,F_labels);
+        f_file<<std::endl;
+
+        if(this->ddBase.simulationParameters.runID==0)
+        {
+            F_labels<<std::flush;
+        }
+        configIO.write(this->ddBase.simulationParameters.runID,this->ddBase.simulationParameters.outputBinary);
+        auxIO.write(this->ddBase.simulationParameters.runID,this->ddBase.simulationParameters.outputBinary);
+    }
+
+    template <int _dim>
     void DefectiveCrystal<_dim>::runSingleStep()
     {
         std::cout<<"\n"<<blueBoldColor<< "runID="<<this->ddBase.simulationParameters.runID<<" (of "<<this->ddBase.simulationParameters.Nsteps<<")"
@@ -66,57 +122,7 @@ namespace model
 
         if (!(this->ddBase.simulationParameters.runID%this->ddBase.simulationParameters.outputFrequency))
         {
-            DDconfigIO<dim> configIO(this->ddBase.simulationParameters.traitsIO.evlFolder);
-            DDauxIO<dim> auxIO(this->ddBase.simulationParameters.traitsIO.auxFolder);
-            
-            f_file<< this->ddBase.simulationParameters.runID<<" "<<std::setprecision(15)<<std::scientific<<this->ddBase.simulationParameters.totalTime<<" "<<this->ddBase.simulationParameters.dt<<" ";
-
-            const Eigen::Matrix<double,dim,dim> pD(this->averagePlasticDistortion());
-            f_file<<pD.row(0)<<" "<<pD.row(1)<<" "<<pD.row(2)<<" "<<pD.trace()<<" "<<pD.norm()<<" ";
-
-            const Eigen::Matrix<double,dim,dim> pDR(this->averagePlasticDistortionRate());
-            f_file<<pDR.row(0)<<" "<<pDR.row(1)<<" "<<pDR.row(2)<<" "<<pDR.trace()<<" "<<pDR.norm()<<" ";
-            
-            if(this->ddBase.simulationParameters.runID==0)
-            {
-                F_labels<<"runID\n";
-                F_labels<<"time [b/cs]\n";
-                F_labels<<"dt [b/cs]\n";
-                
-                F_labels<<"betaP_11\n";
-                F_labels<<"betaP_12\n";
-                F_labels<<"betaP_13\n";
-                F_labels<<"betaP_21\n";
-                F_labels<<"betaP_22\n";
-                F_labels<<"betaP_23\n";
-                F_labels<<"betaP_31\n";
-                F_labels<<"betaP_32\n";
-                F_labels<<"betaP_33\n";
-                F_labels<<"tr(betaP)\n";
-                F_labels<<"norm(betaP)\n";
-                
-                F_labels<<"dotBetaP_11 [cs/b]\n";
-                F_labels<<"dotBetaP_12 [cs/b]\n";
-                F_labels<<"dotBetaP_13 [cs/b]\n";
-                F_labels<<"dotBetaP_21 [cs/b]\n";
-                F_labels<<"dotBetaP_22 [cs/b]\n";
-                F_labels<<"dotBetaP_23 [cs/b]\n";
-                F_labels<<"dotBetaP_31 [cs/b]\n";
-                F_labels<<"dotBetaP_32 [cs/b]\n";
-                F_labels<<"dotBetaP_33 [cs/b]\n";
-                F_labels<<"tr(dotBetaP) [cs/b]\n";
-                F_labels<<"norm(dotBetaP) [cs/b]\n";
-            }
-            
-            this->output(configIO,auxIO,f_file,F_labels);
-            f_file<<std::endl;
-            
-            if(this->ddBase.simulationParameters.runID==0)
-            {
-                F_labels<<std::flush;
-            }
-            configIO.write(this->ddBase.simulationParameters.runID,this->ddBase.simulationParameters.outputBinary);
-            auxIO.write(this->ddBase.simulationParameters.runID,this->ddBase.simulationParameters.outputBinary);
+            writeCurrentState();
         }
         
         // updateConfiguration

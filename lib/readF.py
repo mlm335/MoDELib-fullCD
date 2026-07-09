@@ -8,6 +8,7 @@ import string, os, math, sys
 # Read F File
 def readFfile(folder):
     F=np.loadtxt(folder +'/F/F_0.txt');
+    F=np.atleast_2d(F)
     with open(folder +'/F/F_labels.txt') as f:
         lines = f.readlines()
         for idx in range(len(lines)):
@@ -21,4 +22,4 @@ def getFarray(F,Flabels,label):
         if line==label:
             return F[:,k]
         k=k+1
-    return np.zeros(shape=(0,0))
+    raise KeyError('Label "' + label + '" not found in F labels.')

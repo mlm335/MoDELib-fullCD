@@ -13,6 +13,7 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <cmath>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -37,6 +38,19 @@ std::string to_string_exact(const FloatType& x, const int& n)
   return os.str();
 }
 
+std::string mobileSpeciesLabel(const int& k)
+{
+    static const std::array<std::string,4> labels{{"CD_Cv","CD_Ci","CD_C2i","CD_C3i"}};
+    return k<static_cast<int>(labels.size()) ? labels[k] : "CD_C"+std::to_string(k);
+}
+
+std::string immobileSpeciesLabel(const int& k,const bool& numberDensity)
+{
+    static const std::array<std::string,4> baseLabels{{"c","a1","a2","a3"}};
+    const std::string base(k<static_cast<int>(baseLabels.size()) ? baseLabels[k] : std::to_string(k));
+    return numberDensity ? "CD_N_"+base : "CD_c_"+base;
+}
+
 FieldDataPnt::FieldDataPnt(const DefectiveCrystal<3>& defectiveCrystal,const Eigen::Matrix<double,3,1>& Pin,const ElementType* const ele_in):
 /* init */ voigtTraits(defectiveCrystal.ddBase.voigtTraits)
 /* init */,P(Pin)
@@ -57,6 +71,7 @@ void FieldDataPnt::compute(const DefectiveCrystal<3>& defectiveCrystal)
         displacement[mID]=mStruct->displacement(P,nullptr,ele,nullptr);
         stress[mID]=mStruct->stress(P,nullptr,ele,nullptr);
         mobileConcentration[mID]=mStruct->mobileConcentration(P,nullptr,ele,nullptr);
+        immobileClusters[mID]=mStruct->immobileClusters(P,nullptr,ele,nullptr);
         mID++;
     }
 }
@@ -212,7 +227,15 @@ DDFieldWidget::DDFieldWidget(vtkGenericOpenGLRenderWindow* const renWin_in,
     fieldComboBox->insertItem(7+3,"stress_VM");
     for(int k=0;k<ClusterDynamicsParameters<3>::mSize;++k)
     {
-        fieldComboBox->insertItem(8+3+k,"v");
+        fieldComboBox->insertItem(8+3+k,QString::fromStdString(mobileSpeciesLabel(k)));
+    }
+    for(int k=0;k<ClusterDynamicsParameters<3>::iSize/2;++k)
+    {
+        fieldComboBox->insertItem(8+3+ClusterDynamicsParameters<3>::mSize+k,QString::fromStdString(immobileSpeciesLabel(k,true)));
+    }
+    for(int k=0;k<ClusterDynamicsParameters<3>::iSize/2;++k)
+    {
+        fieldComboBox->insertItem(8+3+ClusterDynamicsParameters<3>::mSize+ClusterDynamicsParameters<3>::iSize/2+k,QString::fromStdString(immobileSpeciesLabel(k,false)));
     }
     
     for(const auto& mstruct : defectiveCrystal.microstructures())

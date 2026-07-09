@@ -1,6 +1,7 @@
 import sys, string, os, fileinput, shutil
 from fractions import Fraction
 import numpy as np
+import random
 # evl file
 
 class EVL:
@@ -16,6 +17,9 @@ class PolyCrystalFile(dict):
     materialFile=''
     crystalStructure=''
     absoluteTemperature=300.0
+    singleCrystal=True
+    f_param = [1.0, 0.0] # fractions for c-axis aligned with global x, global y; remaining goes to global z
+    numberGrains = 1
     dislocationMobilityType='default'
     meshFile='../../Library/Meshes/unitCube.msh'
     grain1globalX1=np.array([1,0,0]) # overwritten if alignToSlipSystem0=true
@@ -49,61 +53,101 @@ class PolyCrystalFile(dict):
         np.set_printoptions(precision=15)
         
     def compute(self):
-        if self.alignToSlipSystem0:
-            if self.crystalStructure == 'BCC':
-                self.grain1globalX1=np.array([1,1,-1]) # overwrite
-                self.grain1globalX3=np.array([1,0,1])  # overwrite
-            elif self.crystalStructure == 'FCC':
-                self.grain1globalX1=np.array([0,1,1]) # overwrite
-                self.grain1globalX3=np.array([-1,1,-1])  # overwrite
-            elif self.crystalStructure == 'CubicFluorite':
-                self.grain1globalX1=np.array([0,1,1]) # overwrite
-                self.grain1globalX3=np.array([-1,1,-1])  # overwrite
-            elif self.crystalStructure == 'HEX':
-                self.grain1globalX1=np.array([1,0,0]) # overwrite
-                self.grain1globalX3=np.array([0,0,1])  # overwrite
-            else:
-                raise Exception("Unkonwn crystalStructure "+self.crystalStructure)
-        
-        x1=self.grain1globalX1/np.linalg.norm(self.grain1globalX1);
-        x3=self.grain1globalX3/np.linalg.norm(self.grain1globalX3);
-        self.C2G=np.array([x1,np.cross(x3,x1),x3]);
-        
-        if self.alignToSlipSystem0:
-            self.boxEdges=self.C2G
-                
-        # Find lattice vectors (columns of L) aligned to boxEdges
-        B=self.invA@self.boxEdges.transpose()
-        for j in range(0, 3):
-            b=B[:,j]/np.max(np.abs(B[:,j]))
-            n=np.array([0,0,0], dtype=int)
-            d=np.array([1,1,1], dtype=int)
-            for i in range(0, 3):
-                f=Fraction(b[i]).limit_denominator(100)
-                n[i]=f.numerator
-                d[i]=f.denominator
-            dp=np.prod(d);
-            nr=np.array([1,1,1], dtype=int)
-            for i in range(0, 3):
-                nr[i]=n[i]*dp/d[i]
-            self.boxEdgesLatticeDirections[:,j]=self.A@nr.transpose()
-            self.boxEdgesLatticeLengths[j]=np.linalg.norm(self.boxEdgesLatticeDirections[:,j])
-            self.F[:,j]=self.C2G@self.boxEdgesLatticeDirections[:,j]*np.round(self.boxScaling[j]/self.boxEdgesLatticeLengths[j])
-        
+
+        if self.singleCrystal:
+            if self.alignToSlipSystem0:
+                if self.crystalStructure == 'BCC':
+                    self.grain1globalX1=np.array([1,1,-1]) # overwrite
+                    self.grain1globalX3=np.array([1,0,1])  # overwrite
+                elif self.crystalStructure == 'FCC':
+                    self.grain1globalX1=np.array([0,1,1]) # overwrite
+                    self.grain1globalX3=np.array([-1,1,-1])  # overwrite
+                elif self.crystalStructure == 'CubicFluorite':
+                    self.grain1globalX1=np.array([0,1,1]) # overwrite
+                    self.grain1globalX3=np.array([-1,1,-1])  # overwrite
+                elif self.crystalStructure == 'HEX':
+                    self.grain1globalX1=np.array([1,0,0]) # overwrite
+                    self.grain1globalX3=np.array([0,0,1])  # overwrite
+                else:
+                    raise Exception("Unkonwn crystalStructure "+self.crystalStructure)
+            
+            x1=self.grain1globalX1/np.linalg.norm(self.grain1globalX1);
+            x3=self.grain1globalX3/np.linalg.norm(self.grain1globalX3);
+            self.C2G=np.array([x1,np.cross(x3,x1),x3]);
+            
+            if self.alignToSlipSystem0:
+                self.boxEdges=self.C2G
+                    
+            # Find lattice vectors (columns of L) aligned to boxEdges
+            B=self.invA@self.boxEdges.transpose()
+            for j in range(0, 3):
+                b=B[:,j]/np.max(np.abs(B[:,j]))
+                n=np.array([0,0,0], dtype=int)
+                d=np.array([1,1,1], dtype=int)
+                for i in range(0, 3):
+                    f=Fraction(b[i]).limit_denominator(100)
+                    n[i]=f.numerator
+                    d[i]=f.denominator
+                dp=np.prod(d);
+                nr=np.array([1,1,1], dtype=int)
+                for i in range(0, 3):
+                    nr[i]=n[i]*dp/d[i]
+                self.boxEdgesLatticeDirections[:,j]=self.A@nr.transpose()
+                self.boxEdgesLatticeLengths[j]=np.linalg.norm(self.boxEdgesLatticeDirections[:,j])
+                self.F[:,j]=self.C2G@self.boxEdgesLatticeDirections[:,j]*np.round(self.boxScaling[j]/self.boxEdgesLatticeLengths[j])
+        else:
+            self.C2G = []
+            def textured_orientation():
+                j = random.random()
+                if j < self.f_param[0]:
+                    # crystal c-axis aligned with global x
+                    return np.array([[0, 0, 1],
+                                    [1, 0, 0],
+                                    [0, 1, 0]])
+                elif j < self.f_param[0] + self.f_param[1]:
+                    # crystal c-axis aligned with global y
+                    return np.array([[0, 1, 0],
+                                    [0, 0, 1],
+                                    [1, 0, 0]])
+                else:
+                    # crystal c-axis aligned with global z
+                    return np.array([[1, 0, 0],
+                                    [0, 1, 0],
+                                    [0, 0, 1]])
+            for i in range(self.numberGrains):
+                self.C2G.append(textured_orientation())
+            self.F=np.diag(self.boxScaling)
+
     def write(self,folderName):
         self.compute()
         polyFile = open(folderName+'/polycrystal.txt', 'w')
         polyFile.write('materialFile='+self.materialFile+';\n')
         polyFile.write('absoluteTemperature='+str(self.absoluteTemperature)+'; # [K] simulation temperature \n')
         polyFile.write('meshFile='+self.meshFile+'; # mesh file \n')
-        polyFile.write('C2G1='+' '.join(map(str, self.C2G[0,:]))+'\n')
-        polyFile.write('     '+' '.join(map(str, self.C2G[1,:]))+'\n')
-        polyFile.write('     '+' '.join(map(str, self.C2G[2,:]))+'; # crystal rotation matrix \n')
+        # polyFile.write('C2G1='+' '.join(map(str, self.C2G[0,:]))+'\n')
+        # polyFile.write('     '+' '.join(map(str, self.C2G[1,:]))+'\n')
+        # polyFile.write('     '+' '.join(map(str, self.C2G[2,:]))+'; # crystal rotation matrix \n')
         polyFile.write('F='+' '.join(map(str, self.F[0,:]))+'\n')
         polyFile.write('  '+' '.join(map(str, self.F[1,:]))+'\n')
         polyFile.write('  '+' '.join(map(str, self.F[2,:]))+'; # mesh deformation gradient. Mesh nodes X are mapped to x=F*(X-X0) \n')
         polyFile.write('X0='+' '.join(map(str, self.X0))+'; # mesh shift. Mesh nodes X are mapped to x=F*(X-X0) \n')
         polyFile.write('periodicFaceIDs='+' '.join(map(str, self.periodicFaceIDs))+'; # IDs of faces labelled as periodic \n')
+        if self.singleCrystal:
+            polyFile.write(f'C2G1 =\n')
+            for i, row in enumerate(self.C2G):
+                line = ' '.join([f'{val:.15f}' for val in row])
+                if i == 2:
+                    line += ';'
+                polyFile.write(line + '\n')
+        else:
+            for i in range(self.numberGrains):
+                polyFile.write(f'C2G{i + 1} =\n')
+                for j, row in enumerate(self.C2G[i]):
+                    line = ' '.join([f'{val:.15f}' for val in row])
+                    if j == 2:
+                        line += ';'
+                    polyFile.write(line + '\n')
+                polyFile.write('\n')
         polyFile.close()
 
 def readEVLtxt(filename):

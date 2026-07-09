@@ -2,6 +2,7 @@
 #ifndef model_ImmobileSinkRate_H_
 #define model_ImmobileSinkRate_H_
 
+#include <algorithm>
 #include <Eigen/Dense>
 #include <EvalFunction.h>
 #include <ClusterDynamicsParameters.h>
@@ -101,6 +102,7 @@ struct ImmobileSinkRate : public EvalFunction<ImmobileSinkRate<MobileTrialFuncti
         Eigen::Matrix<double,iSize,1> correctedSinkValue(sinkValue);
         for(int dof=0;dof<iSize/2;dof++)
         { // Corrected sink strength is to adjust for negative values at the barycenter of the quadratic elements where we have a sharp gradient of sink values between two end nodes
+            correctedSinkValue(dof)=std::max(0.0,correctedSinkValue(dof));
             const double cmin = cdp.n_min(dof)*cdp.omega*correctedSinkValue(dof);
             if(correctedSinkValue(iSize/2+dof)<cmin)
             { // defect size cannot be smaller than a minimal value
@@ -188,10 +190,23 @@ struct ImmobileSinkRate : public EvalFunction<ImmobileSinkRate<MobileTrialFuncti
         
         const Eigen::Matrix<double,rows,mSize> sStrengh(sinkStrengths(sinkvalue,gID));
         const Eigen::Matrix<double,mSize,mSize> speciesFactors(cdp.msVector.matrix().asDiagonal());
-        const Eigen::Array<double,rows/2,1> fluxs((sStrengh.template block<rows/2,mSize>(0,0)*(speciesFactors*Cvalue)).array());
+        const Eigen::Matrix<double,mSize,1> atomicMobileConcentration(speciesFactors*Cvalue);
+        const Eigen::Array<double,rows/2,1> fluxs((sStrengh.template block<rows/2,mSize>(0,0)*atomicMobileConcentration).array());
         
         Eigen::Matrix<double,rows,cols> temp(Eigen::Matrix<double,rows,cols>::Zero());
-        temp.template block<rows/2,cols>(rows/2,0) = (cdp.immobileSpeciesVector.transpose()*fluxs).matrix();
+
+        // Grow Clusters
+        temp.template block<rows/2,cols>(rows/2,0) += (cdp.immobileSpeciesVector.transpose()*fluxs).matrix();
+        // Eigen::Array<double,rows/2,cols> clusterVol(cdp.clusterVolume(sinkvalue.template block<rows/2,1>(rows/2,0).array(),sinkvalue.template block<rows/2,1>(0,0).array()));
+
+        // Cascade Nucleation
+        temp.template block<rows/2,cols>(0,0).array()      += (cdp.loopCascadeRate/cdp.loopNucDefects).transpose();
+        temp.template block<rows/2,cols>(rows/2,0).array() += cdp.loopCascadeRate.transpose();
+
+        // Cluster Nucleation
+        const double nucContent(std::max(0.0,-0.5*(Cvalue.transpose()*cdp.R2sum*Cvalue)(0,0)));
+        temp.template block<rows/2,cols>(0,0).array()      += cdp.loopClusterFraction.transpose()*(nucContent/cdp.loopClusterNucDefects);
+        temp.template block<rows/2,cols>(rows/2,0).array() += (cdp.loopClusterFraction*nucContent).transpose();
 
         return  temp;
     }

@@ -8,6 +8,7 @@
 #ifndef model_ClusterDynamicsFEM_cpp_
 #define model_ClusterDynamicsFEM_cpp_
 
+#include <algorithm>
 #include <cmath>
 #include <ClusterDynamicsFEM.h>
 #include <ExternalAndInternalBoundary.h>
@@ -189,21 +190,73 @@ template struct InvDscaling<3>;
 
 
     template<int dim>
-    void ClusterDynamicsFEM<dim>::updateImmobileClusters(const double dt)
+    void ClusterDynamicsFEM<dim>::clampImmobileDofVector(Eigen::VectorXd& x) const
     {
-        TrialBase<ImmobileTrialType>::dofVector()+=immobileClusterRate * dt;
         for(size_t nodeID=0; nodeID<immobileClusters.nodeSize(); nodeID++)
         {
             for(int dof=0;dof<iSize/2;dof++)
             { // Corrected sink strength is to adjust for negative values at the barycenter of the quadratic elements where we have a sharp gradient of sink values between two end nodes
+                x(iSize*nodeID+dof)=std::max(0.0,x(iSize*nodeID+dof));
                 // rmin = r_min * omega * N
-                const double cmin = this->cdp.n_min(dof)*this->cdp.omega*TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+dof);
-                if(TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+iSize/2+dof)<cmin) //  Nc, Na1, Na2, Na3, c, ca1, ca2, ca3
+                const double cmin = this->cdp.n_min(dof)*this->cdp.omega*x(iSize*nodeID+dof);
+                if(x(iSize*nodeID+iSize/2+dof)<cmin) //  Nc, Na1, Na2, Na3, c, ca1, ca2, ca3
                 { // Loop size cannot be smaller than a minimal value
-                    TrialBase<ImmobileTrialType>::dofVector()(iSize*nodeID+iSize/2+dof)=cmin;                
+                    x(iSize*nodeID+iSize/2+dof)=cmin;
                 }
             }
         }
+    }
+
+
+    template<int dim>
+    void ClusterDynamicsFEM<dim>::applyImmobilePopulationCorrections(Eigen::VectorXd& x,const double dt) const
+    {
+        for(size_t nodeID=0; nodeID<immobileClusters.nodeSize(); nodeID++)
+        {
+            for(int dof=0;dof<iSize/2;dof++)
+            {
+                const int nID(iSize*nodeID+dof);
+                const int cID(iSize*nodeID+iSize/2+dof);
+
+                const double Nold(std::max(0.0,x(nID)));
+                const double Nnew(Nold/(1.0+dt*this->cdp.loopAnnealTauInv(dof)));
+                x(nID)=Nnew;
+                x(cID)-=this->cdp.loopNucDefects(dof)*(Nold-Nnew);
+                x(cID)/=(1.0+dt*this->cdp.loopContentTauInv(dof));
+
+                if(this->cdp.loopCoalLL(dof)!=0.0 || this->cdp.loopCoalLN(dof)!=0.0)
+                {
+                    const double Nc(std::max(0.0,x(nID)));
+                    const double Cc(std::max(0.0,x(cID)));
+                    if(Nc>0.0 && Cc>0.0)
+                    {
+                        const double bMag(this->cdp.immobileSpeciesBurgersMagnitude(dof));
+                        const double r(std::sqrt(Cc/(Nc*M_PI*this->cdp.b*bMag)));
+                        const double vabs(this->cdp.G0);
+                        const double rhoN(this->cdp.loopCoalNetwork);
+                        const double dLL(std::pow(1.0/Nc,1.0/3.0));
+                        const double dNet(1.0/std::sqrt(rhoN+1e-300));
+                        const double rLL(std::min(r,dLL));
+                        const double rLN(std::min(r,dNet));
+                        const double phiLL(1.0-std::exp(-this->cdp.loopCoalKappaLL*(4.0/3.0)*M_PI*rLL*rLL*rLL*Nc));
+                        const double phiLN(1.0-std::exp(-this->cdp.loopCoalKappaLN*M_PI*rLN*rLN*rhoN));
+                        const double nuLL(this->cdp.loopCoalLL(dof)*vabs*std::pow(Nc,1.0/3.0));
+                        const double nuLN(this->cdp.loopCoalLN(dof)*vabs*std::sqrt(rhoN));
+                        x(nID)=Nc/(1.0+dt*(nuLL*phiLL+nuLN*phiLN));
+                        x(cID)=Cc/(1.0+dt*nuLN*phiLN);
+                    }
+                }
+            }
+        }
+        clampImmobileDofVector(x);
+    }
+
+
+    template<int dim>
+    void ClusterDynamicsFEM<dim>::updateImmobileClusters(const double dt)
+    {
+        TrialBase<ImmobileTrialType>::dofVector()+=immobileClusterRate * dt;
+        applyImmobilePopulationCorrections(TrialBase<ImmobileTrialType>::dofVector(),dt);
     }
 
 
@@ -291,6 +344,7 @@ template struct InvDscaling<3>;
         Eigen::Matrix<double,iSize,1> correctedSinkValue(sinkValue);
         for(int dof=0;dof<iSize/2;dof++)
         {
+            correctedSinkValue(dof)=std::max(0.0,correctedSinkValue(dof));
             const double cmin = cdp.n_min(dof)*cdp.omega*correctedSinkValue(dof);
             if(correctedSinkValue(iSize/2+dof)<cmin)
             { // Loop size cannot be smaller than a minimal value
@@ -325,7 +379,8 @@ template struct InvDscaling<3>;
         Eigen::Matrix<double,iSize,1> correctedSinkValue(sinkValue);
         for(int dof=0;dof<iSize/2;dof++)
         {
-        const double cmin = cdp.n_min(dof)*cdp.omega*correctedSinkValue(dof);
+            correctedSinkValue(dof)=std::max(0.0,correctedSinkValue(dof));
+            const double cmin = cdp.n_min(dof)*cdp.omega*correctedSinkValue(dof);
             if(correctedSinkValue(iSize/2+dof)<cmin)
             { // Loop size cannot be smaller than a minimal valu
                 correctedSinkValue(iSize/2+dof)=cmin;
